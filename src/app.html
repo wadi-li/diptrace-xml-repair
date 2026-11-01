@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ремонт библиотек DipTrace XML</title>
+<style>
+:root{--bg:#f6f7f5;--panel:#ffffff;--ink:#1f2523;--mute:#5d6662;--line:#dfe3df;--soft:#eef1ee;--acc:#2f6f62;--acc-ink:#fff;--err:#b4382e;--err-bg:#fbeceb;--warn:#9a6400;--warn-bg:#fdf3df;--info:#3b5f8a;--info-bg:#e9f0f8;--ok:#2e7d4f;--ok-bg:#e6f4ec;--mono:ui-monospace,"Cascadia Mono",Consolas,"Liberation Mono",monospace;--r:8px}
+[data-theme=dark]{--bg:#161a19;--panel:#1e2322;--ink:#e3e8e5;--mute:#9aa5a0;--line:#323a37;--soft:#262c2a;--acc:#5fb3a1;--acc-ink:#0e1312;--err:#ef8a80;--err-bg:#3a2321;--warn:#e3b45c;--warn-bg:#382d17;--info:#8fb3e0;--info-bg:#1f2b3a;--ok:#7cc79a;--ok-bg:#1d3226}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .sp{flex:1}
+main{max-width:1240px;margin:0 auto;padding:16px 20px 60px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+h2{font-size:15px;margin:0 0 10px;font-weight:600}
+h3{font-size:14px;margin:12px 0 6px;font-weight:600}
+p{margin:6px 0}
+.mute{color:var(--mute)}
+.small{font-size:12.5px}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--soft);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#ablBox button{white-space:normal;text-align:left}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+button:disabled{opacity:.45;cursor:default}
+input[type=text],input[type=search],select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+input[type=text]{width:100%}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+#drop{border:2px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;color:var(--mute);cursor:pointer}
+#drop.over{border-color:var(--acc);color:var(--acc)}
+.tw{overflow-x:auto}
+@media(max-width:600px){header{flex-wrap:wrap}header .mute{display:none}main{padding:10px}}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--mute);font-size:12.5px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+code,.mono{font-family:var(--mono);font-size:12.5px}
+.b{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;font-weight:600}
+.b.error{background:var(--err-bg);color:var(--err)}.b.warn{background:var(--warn-bg);color:var(--warn)}.b.info{background:var(--info-bg);color:var(--info)}.b.ok{background:var(--ok-bg);color:var(--ok)}
+tr.grp{cursor:pointer}
+tr.grp:hover td{background:var(--soft)}
+tr.det td{background:var(--soft);padding:0}
+.det-in{max-height:320px;overflow:auto;padding:4px 8px}
+.det-in table td{border-bottom:1px dashed var(--line);font-size:12.5px}
+.files td{cursor:pointer}
+.files tr.sel td{background:var(--soft)}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;font-size:13px}
+.kv b{font-weight:600}
+.note{border-left:3px solid var(--acc);background:var(--soft);padding:8px 12px;border-radius:0 6px 6px 0;margin:8px 0}
+.note.warn{border-left-color:var(--warn)}
+.list{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.list label{display:flex;gap:8px;padding:3px 8px;border-bottom:1px solid var(--line);font-size:13px}
+.list label:hover{background:var(--soft)}
+.steps{font-size:13px}
+.steps li{margin:2px 0}
+.hidden{display:none!important}
+a{color:var(--acc)}
+.pill{display:inline-block;border:1px solid var(--line);border-radius:12px;padding:2px 9px;font-size:12.5px;margin:2px 4px 2px 0}
+.bigstate{font-size:15px;font-weight:600;margin:6px 0}
+details summary{cursor:pointer;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ремонт библиотек DipTrace XML</h1>
+  <span class="mute small">.libxml · .elixml · работает без интернета</span>
+  <span class="sp"></span>
+  <button id="theme" title="Светлая / тёмная тема">Тёмная тема</button>
+</header>
+<main>
+
+<section>
+  <h2>1. Файлы</h2>
+  <div id="drop">Перетащите сюда .libxml / .elixml (можно несколько) или нажмите для выбора
+    <input id="fin" type="file" accept=".libxml,.elixml,.xml" multiple class="hidden"></div>
+  <div id="filesBox" class="hidden" style="margin-top:10px">
+    <div class="tw"><table class="files"><thead><tr><th>Файл</th><th>Тип</th><th class="num">Корпусов</th><th class="num">Компонентов</th><th class="num">Ошибки</th><th class="num">Предупр.</th><th class="num">Инфо</th><th>Повторная запись</th></tr></thead><tbody id="filesT"></tbody></table></div>
+    <p class="mute small">Щёлкните по строке, чтобы открыть файл. Исходные файлы не изменяются — результат скачивается отдельным файлом.</p>
+  </div>
+</section>
+
+<section id="secInfo" class="hidden">
+  <h2>2. Сведения о библиотеке</h2>
+  <div class="grid2">
+    <div class="kv" id="info"></div>
+    <div id="verdict"></div>
+  </div>
+</section>
+
+<section id="sec3d">
+  <h2>3D-модели: наличие файлов</h2>
+  <div class="row"><button class="pri" id="m3Check">Проверить 3D-модели</button><button id="m3Csv" disabled>Отчёт по 3D CSV</button><span id="m3State" class="small"></span></div>
+  <div id="m3Rep" style="margin-top:8px"></div>
+  <details id="m3Setup" style="margin-top:10px"><summary class="small">Настройка автоматической проверки</summary>
+    <p class="small">Браузер не может сам читать диск, поэтому список файлов готовит сценарий <code>dt-models3d-index.cmd</code>. Положите его в ту же папку, что и этот HTML, и запустите двойным щелчком: он запишет рядом <code>dt-models3d-index.js</code> со списком файлов обеих папок. Инструмент читает этот список сам — при открытии и по кнопке «Проверить 3D-модели». Содержимое моделей не читается и из OneDrive не скачивается; файлы «только в облаке» отмечаются отдельно. После добавления моделей запустите сценарий снова.</p>
+    <div class="grid2">
+      <div><b class="small">Свои модели (%my3dmodels%)</b>
+        <input type="text" id="preMy" value="C:\Users\limar\OneDrive\DipTrace\models3d"></div>
+      <div><b class="small">Модели DipTrace (%maindir%\models3d)</b>
+        <input type="text" id="preMain" value="C:\Program Files\DipTrace\models3d"></div>
+    </div>
+    <div class="row" style="margin-top:8px"><button id="m3Cmd">Скачать сценарий dt-models3d-index.cmd</button>
+      <span class="small mute">Если путь не найден, сценарий пробует <code>%OneDrive%\DipTrace\models3d</code>, <code>C:\DipTrace\models3d</code>, <code>%ProgramFiles%\DipTrace\models3d</code>.</span></div>
+    <p class="small mute" style="margin-top:10px">Разовая проверка без сценария — выбор папки вручную:
+      <button id="pickMy">Свои модели…</button> <span id="cntMy"></span>
+      <button id="pickMain">Модели DipTrace…</button> <span id="cntMain"></span></p>
+    <input type="file" id="dirMy" webkitdirectory multiple class="hidden">
+    <input type="file" id="dirMain" webkitdirectory multiple class="hidden">
+  </details>
+</section>
+
+<section id="secDiag" class="hidden">
+  <h2>3. Диагностика</h2>
+  <div class="row" style="margin-bottom:8px">
+    <label><input type="checkbox" class="sevf" value="error" checked> ошибки</label>
+    <label><input type="checkbox" class="sevf" value="warn" checked> предупреждения</label>
+    <label><input type="checkbox" class="sevf" value="info" checked> сведения</label>
+    <input type="search" id="q" placeholder="Поиск по объекту или тексту" style="min-width:240px">
+    <span class="sp" style="flex:1"></span>
+    <button id="selRec">Отметить рекомендуемые</button>
+    <button id="selNone">Снять все</button>
+    <button id="csvIss">Отчёт CSV</button>
+  </div>
+  <div class="tw"><table><thead><tr><th style="width:34px">Испр.</th><th>Уровень</th><th>Код</th><th>Проблема</th><th class="num">Кол-во</th><th>Первый объект</th></tr></thead><tbody id="diagT"></tbody></table></div>
+  <p class="small mute">«всегда» — исправляется самим разбором файла при любом сохранении (обрезанные теги, мусор, NUL, неэкранированные символы). Щёлкните по строке, чтобы увидеть все места.</p>
+</section>
+
+<section id="secFix" class="hidden">
+  <h2>4. Исправление</h2>
+  <div class="row">
+    <button class="pri" id="doFix">Исправить отмеченное и скачать</button>
+    <button id="csvLog" disabled>Журнал исправлений CSV</button>
+    <label class="small"><input type="checkbox" id="keepName" checked> сохранить Name и UID32 библиотеки</label>
+  </div>
+  <div id="fixRes" class="small" style="margin-top:8px"></div>
+  <div class="note small">Перед открытием в DipTrace закройте исходную библиотеку и откройте исправленную через «Library / Open» (или импорт DipXML) в отдельной группе. Если библиотека была подключена в «Library Setup», замените файл после проверки.</div>
+</section>
+
+<section id="secBis" class="hidden">
+  <h2>5. Поиск причины зависания</h2>
+  <p class="small">Если проверка не находит ошибок, а DipTrace всё равно зависает, причину ищут делением: инструмент формирует две половины библиотеки, вы открываете каждую в DipTrace и отмечаете результат. За ~log₂N шагов остаётся один корпус или компонент. У тестовых копий меняются Name и UID32, чтобы они не конфликтовали с основной библиотекой в Library Manager.</p>
+  <div class="row" style="margin:6px 0">
+    <span class="small">Делить по:</span>
+    <select id="bisMode"><option value="pat">корпусам</option><option value="comp">компонентам</option></select>
+    <span class="small">Основа:</span>
+    <select id="bisBase"><option value="orig">исходный файл</option><option value="fixed">исправленный файл</option></select>
+    <button id="bisStart">Начать заново</button>
+  </div>
+  <div id="bisBox"></div>
+  <h3>Проверка гипотез на всей библиотеке</h3>
+  <p class="small mute">Каждый вариант — копия библиотеки без одного класса данных. Если какой-то вариант открывается, а исходный нет — причина в этом классе данных.</p>
+  <div id="ablBox" class="row"></div>
+  <details style="margin-top:10px"><summary class="small">Ручной выбор объектов</summary>
+    <div class="row" style="margin:6px 0"><input type="search" id="manQ" placeholder="Фильтр по имени"><button id="manAll">Отметить видимые</button><button id="manNone">Снять</button>
+      <button id="manOnly">Скачать только отмеченные</button><button id="manWithout">Скачать без отмеченных</button><span id="manCnt" class="small mute"></span></div>
+    <div class="list" id="manList"></div>
+  </details>
+</section>
+
+<section id="secHelp">
+  <h2>Если файл в порядке, а DipTrace зависает</h2>
+  <ul class="small">
+    <li><b>Повреждённые настройки групп библиотек.</b> По совету поддержки DipTrace на форуме: временно переименуйте <code>libgroups.dat</code> и <code>libgroups_var.dat</code> в <code>C:\ProgramData\DipTrace\Data_Unicode</code> (или всю папку) — при запуске они создаются заново; затем подключите библиотеки снова. <a href="https://diptrace.com/forum/viewtopic.php?t=16780" target="_blank" rel="noopener">Форум DipTrace</a></li>
+    <li><b>Файлы OneDrive «только в облаке».</b> Библиотеки и 3D-модели в <code>OneDrive\DipTrace</code> при открытии могут скачиваться; при плохой связи это выглядит как зависание. Отметьте папку «Всегда хранить на этом устройстве». Вариант «без ссылок на 3D-модели» в разделе 5 помогает это проверить.</li>
+    <li><b>Сетевые пути</b> <code>\\сервер\…</code> к моделям или библиотекам — при недоступном ресурсе Windows ждёт тайм-аут.</li>
+    <li><b>Установка в Program Files.</b> Поддержка DipTrace рекомендует ставить программу в отдельную папку, например <code>C:\DipTrace</code>. <a href="https://diptrace.com/rus/support/faq/" target="_blank" rel="noopener">FAQ DipTrace</a></li>
+    <li><b>Если найден конкретный корпус,</b> а формальных ошибок в нём нет — отправьте его копию («Скачать только его») в <a href="mailto:support@diptrace.com">support@diptrace.com</a>.</li>
+  </ul>
+  <p class="small mute">Проверки построены по спецификациям формата, сгенерированным из сериализатора DipTrace: <a href="https://diptrace.com/support/tutorials/xml_specs_PattEdit_html/" target="_blank" rel="noopener">Pattern Editor XML</a>, <a href="https://diptrace.com/support/tutorials/xml_specs_CompEdit_html/" target="_blank" rel="noopener">Component Editor XML</a>. Сохранение без правок повторяет файл побайтно (проверяется при загрузке).</p>
+</section>
+</main>
+<script>
+/*__CORE__*/
+</script>
+<script>
+/*__APP__*/
+</script>
+</body>
+</html>

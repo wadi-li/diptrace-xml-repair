@@ -1,0 +1,10 @@
+global.DX=require('../src/xml.js');const DC=require('../src/checks.js');const fs=require('fs');
+const f=process.argv[2];const s=fs.readFileSync(f,'utf8');
+let t=Date.now();const d=DX.parse(s);const iss=DC.check(d);console.log('check ms',Date.now()-t);
+const by={};iss.forEach(q=>{(by[q.code]=by[q.code]||[]).push(q)});
+for(const k in by)console.log(k,DC.CODES[k]&&DC.CODES[k][0],by[k].length,'|',by[k][0].obj,'|',by[k][0].msg);
+console.log(DC.stats(d));
+const en={};for(const k in DC.CODES)en[k]=DC.CODES[k][1]===true&&DC.DEFAULT_ON[k]!==false;
+const log=DC.apply(d,en);console.log('fixed',log.length);
+const out=DX.serialize(d);const d2=DX.parse(out);const left=DC.check(d2);const by2={};left.forEach(q=>by2[q.code]=(by2[q.code]||0)+1);console.log('left',by2);
+fs.writeFileSync('/tmp/out_'+require('path').basename(f),out);

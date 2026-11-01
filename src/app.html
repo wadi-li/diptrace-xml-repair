@@ -61,16 +61,49 @@ a{color:var(--acc)}
 .pill{display:inline-block;border:1px solid var(--line);border-radius:12px;padding:2px 9px;font-size:12.5px;margin:2px 4px 2px 0}
 .bigstate{font-size:15px;font-weight:600;margin:6px 0}
 details summary{cursor:pointer;font-weight:600}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:9;display:flex;gap:10px;align-items:center;max-width:min(900px,94vw);background:var(--panel);border:1px solid var(--acc);border-radius:8px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.15);font-size:13px}
+#toast.err{border-color:var(--err)}
+#toastMsg{word-break:break-all;flex:1 1 auto;min-width:0}
+#toast button{flex:0 0 auto;white-space:nowrap}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:2px 4px 2px 10px;font-size:12.5px;background:var(--soft)}
+.chip button{padding:0 7px;border:0;background:transparent}
+#libT td{font-size:12.5px}
+#libT tr.loaded td{background:var(--soft)}
 </style>
 </head>
 <body>
+<script>/*__DTR_SERVER__*/</script>
 <header>
   <h1>Ремонт библиотек DipTrace XML</h1>
   <span class="mute small">.libxml · .elixml · работает без интернета</span>
   <span class="sp"></span>
+  <span id="srvBadge" class="hidden small"></span>
+  <button id="srvStop" class="hidden" title="Завершить локальный сервер">Остановить сервер</button>
   <button id="theme" title="Светлая / тёмная тема">Тёмная тема</button>
 </header>
 <main>
+
+<section id="secSrv" class="hidden">
+  <h2>Папки и базы</h2>
+  <div id="srvInfo" class="small"></div>
+  <h3>Подключено в DipTrace</h3>
+  <p class="small mute">Из <code id="dtDataDir">C:\ProgramData\DipTrace\Data_Unicode</code>: <code>libgroups.dat</code> — группы и файлы библиотек, <code>libgroups_var.dat</code> — переменные путей. Формат не документирован, извлекаются только пути.</p>
+  <div id="dtVars" class="small"></div>
+  <div id="dtLibs"></div>
+  <div class="row" style="margin-top:6px"><button id="dtOpenXml">Открыть все XML из DipTrace</button><button id="dtReset">Сбросить группы библиотек…</button><span id="dtBaks" class="small"></span></div>
+  <h3>Мои папки с библиотеками</h3>
+  <div id="libDirs" class="row"></div>
+  <div class="row" style="margin-top:6px">
+    <button class="pri" id="addDirPick">Подключить папку…</button>
+    <input type="text" id="addDirPath" placeholder="или вставьте путь к папке" style="max-width:420px">
+    <button id="addDirBtn">Добавить</button>
+    <label class="small"><input type="checkbox" id="libRecurse" checked> с подпапками</label>
+    <button id="pickFiles">Открыть файлы…</button>
+  </div>
+  <div class="row" style="margin-top:8px"><input type="search" id="libQ" placeholder="Фильтр по имени"><button id="libOpenSel">Открыть отмеченные</button><button id="libOpenAll">Проверить все</button><button id="libRefresh">Обновить список</button><button id="csvAll">Сводный отчёт CSV</button><span id="libCnt" class="small mute"></span></div>
+  <div class="tw list" style="max-height:340px;margin-top:6px"><table><thead><tr><th style="width:28px"><input type="checkbox" id="libAll"></th><th>Библиотека</th><th>Папка</th><th class="num">Размер</th><th>Изменён</th><th>Состояние</th></tr></thead><tbody id="libT"></tbody></table></div>
+  <p class="small mute">Результаты записываются рядом с исходным файлом: <code>&lt;имя&gt;.fixed.&lt;ext&gt;</code>, отчёты CSV; тестовые части — в подпапку <code>dtr-test</code>. Исходный файл меняется только кнопкой «Исправить и заменить исходный» — с резервной копией <code>&lt;имя&gt;.bak-ГГГГММДД-ччммсс.&lt;ext&gt;</code>.</p>
+</section>
 
 <section>
   <h2>1. Файлы</h2>
@@ -95,16 +128,16 @@ details summary{cursor:pointer;font-weight:600}
   <div class="row"><button class="pri" id="m3Check">Проверить 3D-модели</button><button id="m3Csv" disabled>Отчёт по 3D CSV</button><span id="m3State" class="small"></span></div>
   <div id="m3Rep" style="margin-top:8px"></div>
   <details id="m3Setup" style="margin-top:10px"><summary class="small">Настройка автоматической проверки</summary>
-    <p class="small">Браузер не может сам читать диск, поэтому список файлов готовит сценарий <code>dt-models3d-index.cmd</code>. Положите его в ту же папку, что и этот HTML, и запустите двойным щелчком: он запишет рядом <code>dt-models3d-index.js</code> со списком файлов обеих папок. Инструмент читает этот список сам — при открытии и по кнопке «Проверить 3D-модели». Содержимое моделей не читается и из OneDrive не скачивается; файлы «только в облаке» отмечаются отдельно. После добавления моделей запустите сценарий снова.</p>
+    <p class="small" id="m3Help">Браузер не может сам читать диск, поэтому список файлов готовит сценарий <code>dt-models3d-index.cmd</code>. Положите его в ту же папку, что и этот HTML, и запустите двойным щелчком: он запишет рядом <code>dt-models3d-index.js</code> со списком файлов обеих папок. Инструмент читает этот список сам — при открытии и по кнопке «Проверить 3D-модели». Содержимое моделей не читается и из OneDrive не скачивается; файлы «только в облаке» отмечаются отдельно. После добавления моделей запустите сценарий снова.</p>
     <div class="grid2">
       <div><b class="small">Свои модели (%my3dmodels%)</b>
         <input type="text" id="preMy" value="C:\Users\limar\OneDrive\DipTrace\models3d"></div>
       <div><b class="small">Модели DipTrace (%maindir%\models3d)</b>
         <input type="text" id="preMain" value="C:\Program Files\DipTrace\models3d"></div>
     </div>
-    <div class="row" style="margin-top:8px"><button id="m3Cmd">Скачать сценарий dt-models3d-index.cmd</button>
+    <div class="row" style="margin-top:8px" id="m3CmdRow"><button id="m3Cmd">Скачать сценарий dt-models3d-index.cmd</button>
       <span class="small mute">Если путь не найден, сценарий пробует <code>%OneDrive%\DipTrace\models3d</code>, <code>C:\DipTrace\models3d</code>, <code>%ProgramFiles%\DipTrace\models3d</code>.</span></div>
-    <p class="small mute" style="margin-top:10px">Разовая проверка без сценария — выбор папки вручную:
+    <p class="small mute" style="margin-top:10px" id="m3Manual">Разовая проверка без сценария — выбор папки вручную:
       <button id="pickMy">Свои модели…</button> <span id="cntMy"></span>
       <button id="pickMain">Модели DipTrace…</button> <span id="cntMain"></span></p>
     <input type="file" id="dirMy" webkitdirectory multiple class="hidden">
@@ -132,6 +165,7 @@ details summary{cursor:pointer;font-weight:600}
   <h2>4. Исправление</h2>
   <div class="row">
     <button class="pri" id="doFix">Исправить отмеченное и скачать</button>
+    <button id="doReplace" class="hidden">Исправить и заменить исходный…</button>
     <button id="csvLog" disabled>Журнал исправлений CSV</button>
     <label class="small"><input type="checkbox" id="keepName" checked> сохранить Name и UID32 библиотеки</label>
   </div>
@@ -172,6 +206,7 @@ details summary{cursor:pointer;font-weight:600}
   <p class="small mute">Проверки построены по спецификациям формата, сгенерированным из сериализатора DipTrace: <a href="https://diptrace.com/support/tutorials/xml_specs_PattEdit_html/" target="_blank" rel="noopener">Pattern Editor XML</a>, <a href="https://diptrace.com/support/tutorials/xml_specs_CompEdit_html/" target="_blank" rel="noopener">Component Editor XML</a>. Сохранение без правок повторяет файл побайтно (проверяется при загрузке).</p>
 </section>
 </main>
+<div id="toast" class="hidden"><div id="toastMsg"></div><button id="toastShow" class="hidden">Показать в Проводнике</button><button id="toastX" title="Закрыть">×</button></div>
 <script>
 /*__CORE__*/
 </script>

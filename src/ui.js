@@ -4,6 +4,22 @@
   var SEVN = { error: 'ошибка', warn: 'предупр.', info: 'сведения' };
   var SEVO = { error: 0, warn: 1, info: 2 };
   var files = [], cur = null, models = null, open = {};
+  var SRV = window.DTR_SERVER || null;
+  function api(path, body, opt) {
+    opt = opt || {};
+    var init = { method: body === undefined ? 'GET' : 'POST', headers: { 'X-DTR-Token': SRV.token } };
+    if (body !== undefined) { if (body instanceof Blob) init.body = body; else { init.body = JSON.stringify(body); init.headers['Content-Type'] = 'application/json'; } }
+    return fetch(path, init).then(function (r) {
+      if (opt.bin) return r.ok ? r.arrayBuffer() : r.json().then(function (j) { throw new Error(j.error || ('HTTP ' + r.status)); });
+      return r.json().then(function (j) { if (!r.ok && !opt.allow) throw new Error(j.error || ('HTTP ' + r.status)); j.__status = r.status; return j; });
+    });
+  }
+  function toast(msg, path, isErr) {
+    $('toastMsg').innerHTML = msg; $('toast').classList.remove('hidden'); $('toast').classList.toggle('err', !!isErr);
+    $('toastShow').classList.toggle('hidden', !path); $('toastShow').onclick = function () { api('/api/reveal', { path: path }); };
+    clearTimeout(toast.t); if (!isErr) toast.t = setTimeout(function () { $('toast').classList.add('hidden'); }, 9000);
+  }
+  $('toastX').onclick = function () { $('toast').classList.add('hidden'); };
 
   // ---------- тема ----------
   function setTheme(t) { document.documentElement.setAttribute('data-theme', t); $('theme').textContent = t === 'dark' ? 'Светлая тема' : 'Тёмная тема'; try { localStorage.setItem('dtr-theme', t); } catch (e) {} }
@@ -21,7 +37,22 @@
   }
   function split(name) { var m = /^(.*?)(\.[^.]+)?$/.exec(name); return { base: m[1], ext: (m[2] || '.libxml') }; }
   function ser(doc) { var s = DX.serialize(doc); return s.charCodeAt(0) === 0xFEFF ? s : '\uFEFF' + s; }
-  function saveDoc(f, doc, suffix) { var p = split(f.name); download(p.base + suffix + p.ext, ser(doc), 'application/xml'); }
+  function dirOf(p) { return String(p).replace(/[\\\/][^\\\/]*$/, ''); }
+  // Вывод: в режиме сервера — запись на диск рядом с исходником, иначе скачивание.
+  function emit(f, fname, text, kind) {
+    if (SRV && f && f.path) {
+      var sep = f.path.indexOf('\\') >= 0 ? '\\' : '/', target = kind === 'replace' ? f.path : dirOf(f.path) + (kind === 'test' ? sep + 'dtr-test' : '') + sep + fname;
+      return api('/api/write?path=' + encodeURIComponent(target) + '&mode=' + (kind === 'replace' ? 'replace' : 'overwrite') + '&mkdir=1', new Blob([text]))
+        .then(function (r) {
+          toast('Записано: <code>' + esc(r.path) + '</code>' + (r.backup ? '<br>Резервная копия: <code>' + esc(r.backup) + '</code>' : '') + (r.procs && r.procs.length ? '<br><span class="b warn">DipTrace запущен: ' + esc(r.procs.join(', ')) + '</span>' : ''), r.path);
+          return r;
+        }, function (e) { toast('Ошибка записи: ' + esc(e.message), null, true); throw e; });
+    }
+    download(fname, text, /\.csv$/i.test(fname) ? 'text/csv' : 'application/xml');
+    return Promise.resolve(null);
+  }
+  function saveDoc(f, doc, suffix, kind) { var p = split(f.name); return emit(f, p.base + suffix + p.ext, ser(doc), kind || 'test'); }
+  function saveCsv(f, suffix, rows) { return emit(f, split(f.name).base + suffix, csv(rows), 'csv'); }
   function fmtN(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
   function enabledDefault() { var en = {}; for (var k in DC.CODES) en[k] = DC.CODES[k][1] === true && DC.DEFAULT_ON[k] !== false; return en; }
   function modelOpt() { return models && (models.my || models.main) ? { models: models } : {}; }
@@ -34,23 +65,28 @@
   ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
   drop.addEventListener('drop', function (e) { load(e.dataTransfer.files); });
 
-  function readFile(file) {
-    return file.arrayBuffer().then(function (buf) {
-      var u8 = new Uint8Array(buf), txt, enc = 'UTF-8';
-      try { txt = new TextDecoder('utf-8', { fatal: true }).decode(u8); }
-      catch (e) { txt = new TextDecoder('windows-1251').decode(u8); enc = 'не UTF-8 (прочитан как Windows-1251)'; }
-      if (txt.charCodeAt(0) !== 0xFEFF && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) txt = '\uFEFF' + txt;
-      return { txt: txt, enc: enc, size: buf.byteLength };
-    });
+  function decode(buf) {
+    var u8 = new Uint8Array(buf), txt, enc = 'UTF-8';
+    try { txt = new TextDecoder('utf-8', { fatal: true }).decode(u8); }
+    catch (e) { txt = new TextDecoder('windows-1251').decode(u8); enc = 'не UTF-8 (прочитан как Windows-1251)'; }
+    if (txt.charCodeAt(0) !== 0xFEFF && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) txt = '\uFEFF' + txt;
+    return { txt: txt, enc: enc, size: buf.byteLength };
   }
   function load(list) {
-    var arr = Array.prototype.slice.call(list || []);
-    if (!arr.length) return;
-    drop.textContent = 'Чтение…';
+    loadEntries(Array.prototype.map.call(list || [], function (file) { return { name: file.name, get: function () { return file.arrayBuffer(); } }; }));
+  }
+  function loadPaths(paths) {
+    return loadEntries(paths.map(function (p) { return { name: p.replace(/^.*[\\\/]/, ''), path: p, get: function () { return api('/api/read?path=' + encodeURIComponent(p), undefined, { bin: true }); } }; }));
+  }
+  function key(f) { return (f.path || f.name).toLowerCase(); }
+  function loadEntries(arr, quiet) {
+    if (!arr.length) return Promise.resolve();
+    var k = 0;
     var p = Promise.resolve();
-    arr.forEach(function (file) {
-      p = p.then(function () { return readFile(file); }).then(function (r) {
-        var f = { name: file.name, size: r.size, enc: r.enc, src: r.txt };
+    arr.forEach(function (en) {
+      p = p.then(function () { k++; drop.textContent = 'Чтение ' + k + ' из ' + arr.length + ': ' + en.name + '…'; return en.get(); }).then(function (buf) {
+        var r = decode(buf);
+        var f = { name: en.name, path: en.path || null, size: r.size, enc: r.enc };
         var t0 = performance.now();
         try { f.doc = DX.parse(r.txt); } catch (e) { f.err = 'Не удалось разобрать: ' + e.message; }
         if (f.doc) {
@@ -64,16 +100,15 @@
           f.en = enabledDefault();
         }
         f.ms = Math.round(performance.now() - t0);
-        delete f.src;
-        var ix = files.findIndex(function (x) { return x.name === f.name; });
+        var ix = files.findIndex(function (x) { return key(x) === key(f); });
         if (ix >= 0) files[ix] = f; else files.push(f);
         cur = f;
-      }).catch(function (e) { files.push({ name: file.name, err: String(e) }); });
+      }).catch(function (e) { var f = { name: en.name, path: en.path || null, err: String(e.message || e) }; var ix = files.findIndex(function (x) { return key(x) === key(f); }); if (ix >= 0) files[ix] = f; else files.push(f); });
     });
-    p.then(function () {
+    return p.then(function () {
       drop.innerHTML = 'Перетащите сюда .libxml / .elixml (можно несколько) или нажмите для выбора';
       drop.appendChild(fin);
-      renderFiles(); select(cur);
+      renderFiles(); if (cur && !cur.err) select(cur); if (SRV) renderLibs();
     });
   }
   function counts(iss) { var c = { error: 0, warn: 0, info: 0 }; (iss || []).forEach(function (q) { var s = (DC.CODES[q.code] || ['info'])[0]; c[s]++; }); return c; }
@@ -83,7 +118,7 @@
     $('filesT').innerHTML = files.map(function (f, i) {
       if (f.err) return '<tr data-i="' + i + '"><td>' + esc(f.name) + '</td><td colspan="7"><span class="b error">' + esc(f.err) + '</span></td></tr>';
       var c = counts(f.iss), s = f.stats;
-      return '<tr data-i="' + i + '" class="' + (f === cur ? 'sel' : '') + '"><td>' + esc(f.name) + '</td><td>' + (s.kind === 'l' ? 'корпуса' : s.kind === 'e' ? 'компоненты' : '?') + '</td><td class="num">' + s.patterns + '</td><td class="num">' + (s.kind === 'e' ? s.components : '—') + '</td>' +
+      return '<tr data-i="' + i + '" class="' + (f === cur ? 'sel' : '') + '"><td title="' + esc(f.path || '') + '">' + esc(f.name) + (f.path ? '<div class="small mute">' + esc(dirOf(f.path)) + '</div>' : '') + '</td><td>' + (s.kind === 'l' ? 'корпуса' : s.kind === 'e' ? 'компоненты' : '?') + '</td><td class="num">' + s.patterns + '</td><td class="num">' + (s.kind === 'e' ? s.components : '—') + '</td>' +
         '<td class="num">' + (c.error ? '<span class="b error">' + c.error + '</span>' : '0') + '</td><td class="num">' + (c.warn ? '<span class="b warn">' + c.warn + '</span>' : '0') + '</td><td class="num">' + c.info + '</td>' +
         '<td>' + (f.rt ? '<span class="b ok">побайтно совпадает</span>' : '<span class="b warn">отличается' + (f.rtAt ? ' (с ' + f.rtAt + ' стр.)' : '') + '</span>') + '</td></tr>';
     }).join('');
@@ -131,7 +166,7 @@
   function fieldPre(key) { return normPre($(key === 'my' ? 'preMy' : 'preMain').value); }
   ['preMy', 'preMain'].forEach(function (id) {
     try { var sv = localStorage.getItem('dtr-' + id); if (sv) $(id).value = sv; } catch (e) {}
-    $(id).onchange = function () { try { localStorage.setItem('dtr-' + id, $(id).value); } catch (e) {} };
+    $(id).onchange = function () { try { localStorage.setItem('dtr-' + id, $(id).value); } catch (e) {} if (SRV && CFG) { CFG[id === 'preMy' ? 'my3d' : 'main3d'] = $(id).value.trim(); saveCfg(); run3d(); } };
   });
   function recheckAll() {
     files.forEach(function (f) { if (f.doc) f.iss = DC.check(f.doc, modelOpt()); });
@@ -193,6 +228,7 @@
     $('m3Rep').innerHTML = h;
   }
   $('m3Check').onclick = function () {
+    if (SRV) { run3d(); return; }
     $('m3State').textContent = 'Чтение списка файлов…';
     loadIndex(function (ok, why) {
       if (!ok) {
@@ -209,7 +245,7 @@
     var SN = { ok: 'найдена', missing: 'нет файла', cloud: 'только в облаке', unknown: 'вне указанных папок' };
     var rows = [['Файл', '№', 'Корпус', 'Состояние', 'Ссылка', 'Папка']];
     m3rep.list.forEach(function (x) { rows.push([cur.name, x.i, x.name, SN[x.state], x.ref, x.root === 'my' ? '%my3dmodels%' : x.root === 'main' ? '%maindir%\\models3d' : '']); });
-    download(split(cur.name).base + '.3d.csv', csv(rows), 'text/csv');
+    saveCsv(cur, '.3d.csv', rows);
   };
   function b64(s) { var u = new TextEncoder().encode(s), b = ''; for (var i = 0; i < u.length; i++) b += String.fromCharCode(u[i]); return btoa(b); }
   function makeCmd(my, main) {
@@ -279,7 +315,7 @@
   }
   bindDir('pickMy', 'dirMy', 'cntMy', 'my');
   bindDir('pickMain', 'dirMain', 'cntMain', 'main');
-  loadIndex(function (ok) { if (ok) recheckAll(); else $('m3State').innerHTML = '<span class="mute">Список файлов моделей не найден — откройте «Настройка автоматической проверки».</span>'; });
+  if (!SRV) loadIndex(function (ok) { if (ok) recheckAll(); else $('m3State').innerHTML = '<span class="mute">Список файлов моделей не найден — откройте «Настройка автоматической проверки».</span>'; });
 
   // ---------- диагностика ----------
   function groups() {
@@ -318,17 +354,18 @@
   $('csvIss').onclick = function () {
     var rows = [['Файл', 'Уровень', 'Код', 'Проблема', 'Объект', 'Строка', 'Подробно', 'Исправляется']];
     cur.iss.forEach(function (x) { var m = DC.CODES[x.code] || ['info', false, x.code]; rows.push([cur.name, SEVN[m[0]], x.code, m[2], x.obj, x.ln || '', x.msg, m[1] === 'auto' ? 'всегда' : m[1] ? (cur.en[x.code] ? 'да' : 'нет (не отмечено)') : 'нет']); });
-    download(split(cur.name).base + '.diag.csv', csv(rows), 'text/csv');
+    saveCsv(cur, '.diag.csv', rows);
   };
 
   // ---------- исправление ----------
   function renderFix() {
     var n = 0, act = 0; cur.iss.forEach(function (x) { var m = DC.CODES[x.code]; if (!m) return; if (m[1] === 'auto') act++; else if (m[1] === true && cur.en[x.code]) n++; });
-    $('doFix').textContent = 'Исправить отмеченное (' + n + (act ? ' + ' + act + ' при разборе' : '') + ') и скачать';
+    $('doFix').textContent = 'Исправить отмеченное (' + n + (act ? ' + ' + act + ' при разборе' : '') + ') и ' + (SRV && cur.path ? 'сохранить .fixed' : 'скачать');
+    $('doReplace').classList.toggle('hidden', !(SRV && cur.path));
     $('csvLog').disabled = !cur.log;
   }
-  $('doFix').onclick = function () {
-    var f = cur, d = { root: DX.clone(f.doc.root), decl: f.doc.decl, nl: '\r\n', bom: true, issues: [] };
+  function buildFixed(f) {
+    var d = { root: DX.clone(f.doc.root), decl: f.doc.decl, nl: '\r\n', bom: true, issues: [] };
     var name0 = DX.at(d.root, 'Name'), uid0 = DX.at(d.root, 'UID32');
     var log = DC.apply(d, f.en, modelOpt());
     if ($('keepName').checked) { if (name0 != null) DX.setA(d.root, 'Name', name0); if (uid0 != null) DX.setA(d.root, 'UID32', uid0); }
@@ -336,17 +373,38 @@
     var autoN = f.iss.filter(function (x) { return (DC.CODES[x.code] || [])[1] === 'auto'; });
     f.log = autoN.map(function (x) { return { pass: 0, code: x.code, obj: x.obj, ln: x.ln, msg: x.msg }; }).concat(log);
     f.fixed = d2;
-    saveDoc(f, d2, '.fixed');
+    return { doc: d2, c: c };
+  }
+  function fixReport(f, R, where) {
     var by = {}; f.log.forEach(function (x) { by[x.code] = (by[x.code] || 0) + 1; });
-    $('fixRes').innerHTML = '<p>Скачан <b>' + esc(split(f.name).base + '.fixed' + split(f.name).ext) + '</b>. Исправлений: ' + f.log.length + '. ' +
+    $('fixRes').innerHTML = '<p>' + where + ' Исправлений: ' + f.log.length + '. ' +
       Object.keys(by).map(function (k) { return '<span class="pill"><span class="mono">' + k + '</span> ' + by[k] + '</span>'; }).join('') + '</p>' +
-      '<p>Повторная проверка результата: ошибок ' + c.error + ', предупреждений ' + c.warn + ', сведений ' + c.info + '.' + (c.error ? ' Оставшиеся ошибки автоматически не исправляются — смотрите раздел 3.' : '') + '</p>';
+      '<p>Повторная проверка результата: ошибок ' + R.c.error + ', предупреждений ' + R.c.warn + ', сведений ' + R.c.info + '.' + (R.c.error ? ' Оставшиеся ошибки автоматически не исправляются — смотрите раздел 3.' : '') + '</p>';
     renderFix(); $('bisBase').querySelector('option[value=fixed]').disabled = false; $('bisBase').value = 'fixed'; bisInit(); renderMan();
+  }
+  $('doFix').onclick = function () {
+    var f = cur, R = buildFixed(f), nm = split(f.name).base + '.fixed' + split(f.name).ext;
+    saveDoc(f, R.doc, '.fixed', 'fixed').then(function (w) {
+      fixReport(f, R, w ? 'Записан <code>' + esc(w.path) + '</code>.' : 'Скачан <b>' + esc(nm) + '</b>.');
+    }, function () { });
   };
+  $('doReplace').onclick = function () {
+    var f = cur; if (!SRV || !f.path) return;
+    api('/api/procs').then(function (pr) {
+      var warn = pr.procs && pr.procs.length ? '\n\nВнимание: запущен DipTrace (' + pr.procs.join(', ') + '). Закройте в нём эту библиотеку, иначе он может перезаписать файл.' : '';
+      if (!confirm('Заменить исходный файл исправленным?\n\n' + f.path + '\n\nПеред записью будет создана резервная копия <имя>.bak-ГГГГММДД-ччммсс рядом с ним.' + warn)) return;
+      var R = buildFixed(f);
+      return saveDoc(f, R.doc, '', 'replace').then(function (w) {
+        var msg = '<p>Исходный файл заменён: <code>' + esc(w.path) + '</code> (исправлений: ' + f.log.length + '). Резервная копия: <code>' + esc(w.backup || '—') + '</code>. Файл перечитан — результаты проверки выше относятся к новой версии.</p>';
+        return loadPaths([f.path]).then(function () { $('fixRes').innerHTML = msg; });
+      });
+    }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); });
+  };
+
   $('csvLog').onclick = function () {
     var rows = [['Проход', 'Код', 'Проблема', 'Объект', 'Строка исходника', 'Что сделано']];
     (cur.log || []).forEach(function (x) { rows.push([x.pass === 0 ? 'разбор' : x.pass, x.code, (DC.CODES[x.code] || [, , ''])[2], x.obj, x.ln || '', x.msg]); });
-    download(split(cur.name).base + '.fixlog.csv', csv(rows), 'text/csv');
+    saveCsv(cur, '.fixlog.csv', rows);
   };
 
   // ---------- поиск деления ----------
@@ -396,7 +454,7 @@
     on('vOk', function () { push(); B.done = 'Обе части открываются, а целиком — нет. Причина не в одном объекте: либо сочетание объектов из разных половин (например, одинаковые стили/имена), либо общий объём/внешние ссылки. Проверьте варианты «без …» ниже и справку внизу. «Шаг назад» вернёт предыдущее состояние.'; renderBis(); });
     on('bBack', function () { var s = B.hist.pop(); B.cand = s.cand; B.later = s.later; B.step = s.step; B.done = s.done; renderBis(); });
     on('bLater', function () { push(); B.cand = B.later.shift(); renderBis(); });
-    on('bWithout', function () { var keep = B.all.map(function (x) { return x.i; }).filter(function (i) { return i !== B.cand[0]; }); saveDoc(cur, DC.subset(baseDoc(), B.mode, keep, null), '.without_' + safe(nm(B.cand[0]))); });
+    on('bWithout', function () { var keep = B.all.map(function (x) { return x.i; }).filter(function (i) { return i !== B.cand[0]; }); saveDoc(cur, DC.subset(baseDoc(), B.mode, keep, null), '.without_' + safe(nm(B.cand[0])), 'fixed'); });
     on('bOnly', function () { saveDoc(cur, DC.subset(baseDoc(), B.mode, [B.cand[0]], tag(nm(B.cand[0]))), '.only_' + safe(nm(B.cand[0]))); });
   }
   function safe(s) { return String(s || 'obj').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40); }
@@ -425,4 +483,144 @@
   $('manNone').onclick = function () { Array.prototype.forEach.call($('manList').querySelectorAll('input'), function (c) { c.checked = false; }); $('manList').onchange(); };
   $('manOnly').onclick = function () { var p = picked(); if (!p.length) return; saveDoc(cur, DC.subset(baseDoc(), $('bisMode').value, p, '[выбор ' + p.length + ']'), '.pick' + p.length); };
   $('manWithout').onclick = function () { var p = picked(); if (!p.length) return; var s = {}; p.forEach(function (i) { s[i] = 1; }); var keep = DC.items(baseDoc(), $('bisMode').value).map(function (x) { return x.i; }).filter(function (i) { return !s[i]; }); saveDoc(cur, DC.subset(baseDoc(), $('bisMode').value, keep, null), '.without' + p.length); };
+
+  // ---------- локальный сервер: папки, базы, подключённые в DipTrace ----------
+  var CFG = null, INFO = null, DTV = {}, DTG = null, DTD = null, LIBS = [], LIBDIRS = [], REG = {};
+  function saveCfg() { return api('/api/config', CFG).then(function (c) { CFG = c; }); }
+  function b64bytes(b) { var s = atob(b), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+  function fmtSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' МБ' : n >= 1024 ? Math.round(n / 1024) + ' КБ' : n + ' Б'; }
+  function loadedBy(p) { var k = String(p).toLowerCase(); return files.find(function (f) { return f.path && f.path.toLowerCase() === k; }); }
+  function stateCell(p, cloud) {
+    var f = loadedBy(p);
+    if (f) { if (f.err) return '<span class="b error">не разобран</span>'; var c = counts(f.iss); return (c.error ? '<span class="b error">ошибок ' + c.error + '</span> ' : '') + (c.warn ? '<span class="b warn">предупр. ' + c.warn + '</span>' : '') + (!c.error && !c.warn ? '<span class="b ok">в порядке</span>' : ''); }
+    return cloud ? '<span class="b warn">только в облаке</span>' : '<span class="small mute">не проверен</span>';
+  }
+  function srvInit() {
+    $('secSrv').classList.remove('hidden'); $('srvBadge').classList.remove('hidden'); $('srvStop').classList.remove('hidden');
+    $('srvBadge').textContent = 'локальный сервер :' + SRV.port;
+    ['m3Help', 'm3CmdRow', 'm3Manual'].forEach(function (id) { $(id).classList.add('hidden'); });
+    $('m3Setup').querySelector('summary').textContent = 'Папки 3D-моделей';
+    $('srvInfo').textContent = 'Подключение к локальному серверу…';
+    api('/api/info').then(function (i) {
+      INFO = i; CFG = i.config; $('libRecurse').checked = CFG.recurse !== false;
+      return refreshDT();
+    }).then(function () {
+      if (!CFG.libDirs || !CFG.libDirs.length) {
+        var d = [DTV['%mylibs%'] || 'C:\\Users\\limar\\OneDrive\\DipTrace\\lib'];
+        (DTG ? DTG.libs : []).forEach(function (l) { if (/xml$/.test(l.ext)) { var x = dirOf(l.path); if (!d.some(function (y) { return y.toLowerCase() === x.toLowerCase(); })) d.push(x); } });
+        CFG.libDirs = d; saveCfg();
+      }
+      if (CFG.my3d) $('preMy').value = CFG.my3d; else if (DTV['%my3dmodels%']) $('preMy').value = DTV['%my3dmodels%'];
+      if (CFG.main3d) $('preMain').value = CFG.main3d; else if (INFO.dt.maindir) $('preMain').value = INFO.dt.maindir + '\\models3d';
+      renderSrvInfo(); renderDirs(); refreshLibs(); run3d();
+    }).catch(function (e) { $('srvInfo').innerHTML = '<span class="b error">Сервер недоступен: ' + esc(e.message) + '</span> Запустите DipTrace-XML-Repair.cmd заново.'; });
+  }
+  function renderSrvInfo() {
+    var d = INFO.dt, main = (d.installs || []).filter(function (x) { return x.name === 'DipTrace'; })[0];
+    $('srvInfo').innerHTML = 'Компьютер <b>' + esc(INFO.computer) + '</b> · ' + (main ? 'DipTrace ' + esc(main.version) + ' — <code>' + esc(d.maindir) + '</code>' : d.maindir ? 'DipTrace — <code>' + esc(d.maindir) + '</code>' : '<span class="b warn">DipTrace не найден в реестре</span>') +
+      (d.procs && d.procs.length ? ' · <span class="b warn">запущено: ' + esc(d.procs.join(', ')) + '</span>' : ' · DipTrace не запущен') +
+      ' · настройки инструмента: <code>' + esc(INFO.cfgFile) + '</code>';
+    $('dtDataDir').textContent = d.dataDir;
+  }
+  function refreshDT() {
+    return api('/api/dtdata').then(function (D) {
+      DTD = D; DTV = {}; DTG = null; REG = {};
+      var g = null, v = null;
+      (D.files || []).forEach(function (f) { if (f.name === 'libgroups_var.dat') v = b64bytes(f.b64); if (f.name === 'libgroups.dat') g = b64bytes(f.b64); });
+      if (v) DTV = DD.vars(v);
+      if (g) { DTG = DD.groups(g, DTV); DTG.libs.forEach(function (l) { REG[l.path.toLowerCase()] = 1; }); }
+      $('dtVars').innerHTML = Object.keys(DTV).length ? 'Переменные: ' + Object.keys(DTV).map(function (k) { return '<span class="pill"><code>' + esc(k) + '</code> = <code>' + esc(DTV[k]) + '</code></span>'; }).join('') : (D.exists ? '<span class="mute">Переменные путей не найдены.</span>' : '<span class="b warn">Папка данных DipTrace не найдена</span>');
+      $('dtBaks').innerHTML = (D.backups || []).length ? 'Резервные копии групп: ' + D.backups.slice(0, 5).map(function (b) { return '<button data-ts="' + esc(b.ts) + '" class="dtRestore">Восстановить ' + esc(b.ts.replace(/^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)$/, '$3.$2.$1 $4:$5')) + '</button>'; }).join(' ') : '';
+      Array.prototype.forEach.call(document.querySelectorAll('.dtRestore'), function (b) { b.onclick = function () { restoreDT(b.dataset.ts); }; });
+      var libs = DTG ? DTG.libs : [];
+      if (!libs.length) { $('dtLibs').innerHTML = '<p class="small mute">' + (g ? 'Своих библиотек в группах не найдено.' : 'libgroups.dat не найден.') + '</p>'; return; }
+      return api('/api/stat', { paths: libs.map(function (l) { return l.path; }) }).then(function (st) {
+        var S = {}; (st.files || []).forEach(function (x) { S[x.path.toLowerCase()] = x; });
+        $('dtLibs').innerHTML = '<div class="tw"><table><thead><tr><th>Библиотека</th><th>Формат</th><th class="num">Размер</th><th>Изменён</th><th>Состояние</th><th></th></tr></thead><tbody>' + libs.map(function (l) {
+          var x = S[l.path.toLowerCase()] || {}, xml = /xml$/.test(l.ext);
+          return '<tr><td class="small"><b>' + esc(l.path.replace(/^.*[\\\/]/, '')) + '</b><div class="mute">' + esc(dirOf(l.path)) + '</div></td><td class="small">' + (xml ? 'XML' : 'двоичный .' + esc(l.ext)) + '</td>' +
+            '<td class="num small">' + (x.exists ? fmtSize(x.size) : '') + '</td><td class="small">' + (x.exists ? esc(fmtDate(x.mtime)) : '') + '</td>' +
+            '<td>' + (!x.exists ? '<span class="b error">файл не найден</span>' : xml ? stateCell(l.path, x.cloud) : '<span class="small mute">проверяется только XML</span>') + '</td>' +
+            '<td>' + (x.exists && xml ? '<button class="dtOpen" data-p="' + esc(l.path) + '">Открыть</button>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+        Array.prototype.forEach.call(document.querySelectorAll('.dtOpen'), function (b) { b.onclick = function () { openPath(b.dataset.p); }; });
+      });
+    });
+  }
+  function openPath(p) { var f = loadedBy(p); if (f && !f.err) { select(f); renderFiles(); renderLibs(); $('secInfo').scrollIntoView({ behavior: 'smooth' }); } else loadPaths([p]); }
+  $('dtOpenXml').onclick = function () { var l = (DTG ? DTG.libs : []).filter(function (x) { return /xml$/.test(x.ext); }).map(function (x) { return x.path; }); if (l.length) loadPaths(l); };
+  $('dtReset').onclick = function () {
+    api('/api/procs').then(function (pr) {
+      if (pr.procs && pr.procs.length) { alert('Сначала закройте DipTrace: ' + pr.procs.join(', ')); return; }
+      if (!confirm('Сбросить группы библиотек DipTrace?\n\nlibgroups.dat и libgroups_var.dat будут переименованы в *.dtr-bak-<время> (не удалены). При следующем запуске DipTrace создаст их заново: стандартные библиотеки останутся, свои библиотеки и переменные (%mylibs%, %my3dmodels%) нужно будет подключить снова.\n\nВернуть прежние можно кнопкой «Восстановить».')) return;
+      return api('/api/dtdata/reset', {}).then(function (r) { toast('Переименовано: ' + esc(r.renamed.join(', ')) + ' → *.dtr-bak-' + esc(r.ts) + '. Запустите DipTrace.'); return refreshDT(); });
+    }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); });
+  };
+  function restoreDT(ts) {
+    if (!confirm('Вернуть группы библиотек из резервной копии ' + ts + '?\nDipTrace должен быть закрыт. Текущие файлы будут сохранены как *.dtr-new-<время>.')) return;
+    api('/api/dtdata/restore', { ts: ts }).then(function (r) { toast('Восстановлено: ' + esc(r.restored.join(', '))); return refreshDT(); }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); });
+  }
+  function renderDirs() {
+    $('libDirs').innerHTML = (CFG.libDirs || []).map(function (d, i) { return '<span class="chip"><code>' + esc(d) + '</code><button data-i="' + i + '" title="Отключить папку">×</button></span>'; }).join('') || '<span class="small mute">Папки не подключены.</span>';
+    Array.prototype.forEach.call($('libDirs').querySelectorAll('button'), function (b) { b.onclick = function () { CFG.libDirs.splice(+b.dataset.i, 1); saveCfg().then(function () { renderDirs(); refreshLibs(); }); }; });
+  }
+  function addDir(d) {
+    d = String(d || '').trim().replace(/^"|"$/g, '').replace(/[\\\/]+$/, ''); if (!d) return;
+    if ((CFG.libDirs || []).some(function (x) { return x.toLowerCase() === d.toLowerCase(); })) return;
+    CFG.libDirs = (CFG.libDirs || []).concat([d]); saveCfg().then(function () { renderDirs(); refreshLibs(); });
+  }
+  $('addDirPick').onclick = function () { $('addDirPick').disabled = true; api('/api/pick', { kind: 'dir', start: (CFG.libDirs || [])[0] || '' }).then(function (r) { (r.paths || []).forEach(addDir); if (!(r.paths || []).length) toast('Окно выбора закрыто без выбора. Если окно не появилось — оно может быть за браузером.'); }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); }).then(function () { $('addDirPick').disabled = false; }); };
+  $('addDirBtn').onclick = function () { addDir($('addDirPath').value); $('addDirPath').value = ''; };
+  $('addDirPath').onkeydown = function (e) { if (e.key === 'Enter') $('addDirBtn').onclick(); };
+  $('libRecurse').onchange = function () { CFG.recurse = $('libRecurse').checked; saveCfg().then(refreshLibs); };
+  $('pickFiles').onclick = function () { api('/api/pick', { kind: 'files', start: (CFG.libDirs || [])[0] || '' }).then(function (r) { if ((r.paths || []).length) loadPaths(r.paths); }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); }); };
+  function refreshLibs() {
+    $('libCnt').textContent = 'Поиск…';
+    return api('/api/list', { dirs: CFG.libDirs || [], recurse: CFG.recurse !== false }).then(function (r) {
+      LIBS = []; LIBDIRS = r.dirs || [];
+      LIBDIRS.forEach(function (d) { (d.files || []).forEach(function (f) { f.root = d.dir; LIBS.push(f); }); });
+      renderLibs();
+    }).catch(function (e) { $('libCnt').textContent = 'Ошибка: ' + e.message; });
+  }
+  function renderLibs() {
+    if (!SRV || !CFG) return;
+    var q = $('libQ').value.trim().toLowerCase(), shown = 0;
+    var miss = LIBDIRS.filter(function (d) { return !d.exists; }).map(function (d) { return '<tr><td></td><td colspan="5"><span class="b error">папка не найдена</span> <code>' + esc(d.dir) + '</code></td></tr>'; }).join('');
+    $('libT').innerHTML = miss + LIBS.map(function (f, i) {
+      var nm = f.path.replace(/^.*[\\\/]/, ''); if (q && nm.toLowerCase().indexOf(q) < 0) return '';
+      shown++;
+      var rel = dirOf(f.path).slice(f.root.length).replace(/^[\\\/]/, '') || '.';
+      return '<tr data-i="' + i + '" class="' + (loadedBy(f.path) ? 'loaded' : '') + '"><td><input type="checkbox" data-i="' + i + '"></td><td><b>' + esc(nm) + '</b>' + (REG[f.path.toLowerCase()] ? ' <span class="b info">подключена в DipTrace</span>' : '') + '</td><td class="mono small" title="' + esc(dirOf(f.path)) + '">' + esc(rel) + '</td><td class="num">' + fmtSize(f.size) + '</td><td>' + esc(fmtDate(f.mtime)) + '</td><td>' + stateCell(f.path, f.cloud) + '</td></tr>';
+    }).join('');
+    $('libCnt').textContent = 'Найдено: ' + LIBS.length + (q ? ', показано: ' + shown : '');
+    Array.prototype.forEach.call($('libT').querySelectorAll('tr[data-i]'), function (tr) { tr.onclick = function (e) { if (e.target.tagName === 'INPUT') return; openPath(LIBS[+tr.dataset.i].path); }; });
+  }
+  function checkedLibs(all) { return Array.prototype.filter.call($('libT').querySelectorAll('input[data-i]'), function (c) { return all || c.checked; }).map(function (c) { return LIBS[+c.dataset.i].path; }); }
+  $('libQ').oninput = renderLibs;
+  $('libAll').onchange = function () { Array.prototype.forEach.call($('libT').querySelectorAll('input[data-i]'), function (c) { c.checked = $('libAll').checked; }); };
+  $('libOpenSel').onclick = function () { var l = checkedLibs(false); if (l.length) loadPaths(l); else toast('Отметьте библиотеки в списке.'); };
+  $('libOpenAll').onclick = function () { var l = checkedLibs(true); if (!l.length) return; if (l.length > 40 && !confirm('Проверить ' + l.length + ' библиотек? Это может занять время и память браузера.')) return; loadPaths(l); };
+  $('libRefresh').onclick = function () { refreshLibs(); refreshDT(); api('/api/info').then(function (i) { INFO = i; renderSrvInfo(); }); };
+  $('csvAll').onclick = function () {
+    var rows = [['Файл', 'Путь', 'Тип', 'Корпусов', 'Компонентов', 'Уровень', 'Код', 'Проблема', 'Объект', 'Строка', 'Подробно']];
+    files.forEach(function (f) {
+      if (f.err) { rows.push([f.name, f.path || '', '', '', '', 'ошибка', 'PARSE', 'Не разобран', '', '', f.err]); return; }
+      if (!f.iss.length) rows.push([f.name, f.path || '', f.stats.type, f.stats.patterns, f.stats.components, '', '', 'Замечаний нет', '', '', '']);
+      f.iss.forEach(function (x) { var m = DC.CODES[x.code] || ['info', false, x.code]; rows.push([f.name, f.path || '', f.stats.type, f.stats.patterns, f.stats.components, SEVN[m[0]], x.code, m[2], x.obj, x.ln || '', x.msg]); });
+    });
+    var d = new Date(), ts = d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+    download('dtr-svodka-' + ts + '.csv', csv(rows), 'text/csv');
+  };
+  function run3d() {
+    if (!SRV || !CFG) return;
+    $('m3State').textContent = 'Чтение папок 3D-моделей…';
+    var my = [$('preMy').value.trim(), CFG.my3d, DTV['%my3dmodels%']], main = [$('preMain').value.trim(), CFG.main3d, INFO && INFO.dt.maindir ? INFO.dt.maindir + '\\models3d' : ''];
+    api('/api/models', { my: my.filter(Boolean), main: main.filter(Boolean) }).then(function (X) { applyIndex(X); recheckAll(); if (DTG) refreshDT(); renderLibs(); })
+      .catch(function (e) { $('m3State').innerHTML = '<span class="b error">' + esc(e.message) + '</span>'; });
+  }
+  $('srvStop').onclick = function () {
+    if (!confirm('Остановить локальный сервер? Инструмент перестанет видеть папки до следующего запуска DipTrace-XML-Repair.cmd.')) return;
+    api('/api/shutdown', {}).then(function () { document.body.innerHTML = '<main><section><h2>Сервер остановлен</h2><p>Эту вкладку можно закрыть. Для нового запуска — DipTrace-XML-Repair.cmd.</p></section></main>'; });
+  };
+  if (SRV) srvInit();
 })();

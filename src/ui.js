@@ -176,7 +176,7 @@
   }
   var m3rep = null;
   function render3d() {
-    $('m3State').innerHTML = stateLine();
+    $('m3State').innerHTML = stateLine() || '<span class="mute">Список файлов моделей не найден — откройте «Настройка автоматической проверки».</span>';
     if (!cur || !cur.doc) { $('m3Rep').innerHTML = models ? '' : ''; $('m3Csv').disabled = true; return; }
     if (!models || !(models.my || models.main)) { $('m3Rep').innerHTML = ''; $('m3Csv').disabled = true; return; }
     var R = m3rep = DC.modelReport(cur.doc, models);

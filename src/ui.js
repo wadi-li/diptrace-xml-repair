@@ -1,4 +1,4 @@
-(function () {
+window.DTR_START = function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var SEVN = { error: 'ошибка', warn: 'предупр.', info: 'сведения' };
@@ -512,7 +512,7 @@
       }
       if (CFG.my3d) $('preMy').value = CFG.my3d; else if (DTV['%my3dmodels%']) $('preMy').value = DTV['%my3dmodels%'];
       if (CFG.main3d) $('preMain').value = CFG.main3d; else if (INFO.dt.maindir) $('preMain').value = INFO.dt.maindir + '\\models3d';
-      renderSrvInfo(); renderDirs(); refreshLibs(); run3d();
+      renderSrvInfo(); renderProto(); renderDirs(); refreshLibs(); run3d();
     }).catch(function (e) { $('srvInfo').innerHTML = '<span class="b error">Сервер недоступен: ' + esc(e.message) + '</span> Запустите DipTrace-XML-Repair.cmd заново.'; });
   }
   function renderSrvInfo() {
@@ -622,5 +622,77 @@
     if (!confirm('Остановить локальный сервер? Инструмент перестанет видеть папки до следующего запуска DipTrace-XML-Repair.cmd.')) return;
     api('/api/shutdown', {}).then(function () { document.body.innerHTML = '<main><section><h2>Сервер остановлен</h2><p>Эту вкладку можно закрыть. Для нового запуска — DipTrace-XML-Repair.cmd.</p></section></main>'; });
   };
-  if (SRV) srvInit();
-})();
+  // ---------- самодостаточный запуск сервера ----------
+  var MK = '<' + '#DTR-HTML#' + '>', PORTS = [8765, 8766, 8767, 8768];
+  function pageSnap() {
+    return String(window.DTR_SNAP || '').replace(/window\.DTR_SERVER=\{token:\"[0-9a-f]{32}\",port:\d+,version:\"[^\"]*\"\};/, '/*__DTR_' + 'SERVER__*/')
+      .replace(/<script\b[^>]*\bsrc=[^>]*>\s*<\/script>/gi, '');   // скрипты, внедрённые фильтрами (AdGuard и т.п.)
+  }
+  function makeServerCmd() {
+    var hdr = ['<# : DipTrace XML Repair - local server', '@echo off', 'setlocal', 'set "DTR_DIR=%~dp0"', 'set "DTR_SELF=%~f0"',
+      'title DipTrace XML Repair - local server',
+      'powershell -NoProfile -STA -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText($env:DTR_SELF,[Text.Encoding]::UTF8); $i=$t.LastIndexOf(\'<\'+\'#DTR-HTML#\'+\'>\'); if($i -lt 0){$i=$t.Length}; iex $t.Substring(0,$i)"',
+      'if errorlevel 1 pause', 'exit /b', '#>', ''].join('\r\n');
+    var ps = String(window.DTR_PS || '').replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+    return hdr + ps + '\r\n' + MK + '\r\n' + pageSnap();
+  }
+  window.__makeServerCmd = makeServerCmd;
+  function dlServer() {
+    if (!window.DTR_PS) { toast('В этой сборке страницы нет встроенного сервера', null, true); return; }
+    download('DipTrace-XML-Repair.cmd', makeServerCmd(), 'application/octet-stream');
+  }
+  function ping(p) {
+    var c = window.AbortController ? new AbortController() : null, t = setTimeout(function () { if (c) c.abort(); }, 1500);
+    return fetch('http://127.0.0.1:' + p + '/api/ping', { mode: 'no-cors', cache: 'no-store', signal: c ? c.signal : undefined })
+      .then(function () { clearTimeout(t); return p; }, function () { clearTimeout(t); return null; });
+  }
+  function findSrv() { return Promise.all(PORTS.map(ping)).then(function (r) { return r.filter(Boolean)[0] || null; }); }
+  var pollT = null;
+  function srvUp(p, go) {
+    var url = 'http://127.0.0.1:' + p + '/';
+    if (go) { $('launchState').textContent = 'Сервер запущен, открываю…'; location.href = url; return; }
+    $('launchState').innerHTML = '<span class="b ok">сервер запущен</span> <a href="' + url + '">Открыть инструмент с сервером</a>';
+  }
+  function poll(sec, go, onTick) {
+    clearInterval(pollT); var t0 = Date.now(), busy = false;
+    pollT = setInterval(function () {
+      if (busy) return; var el = (Date.now() - t0) / 1000;
+      if (el > sec) { clearInterval(pollT); $('launchState').textContent = 'Сервер не отвечает.'; $('launchHelp').classList.remove('hidden'); return; }
+      if (onTick) onTick(el);
+      busy = true; findSrv().then(function (p) { busy = false; if (p) { clearInterval(pollT); srvUp(p, go); } });
+    }, 1000);
+  }
+  function launchInit() {
+    $('secLaunch').classList.remove('hidden');
+    if (!window.DTR_PS) { $('dlSrv').disabled = true; $('runSrv').disabled = true; $('launchState').textContent = 'Сборка без встроенного сервера.'; return; }
+    findSrv().then(function (p) { if (p) srvUp(p, false); });
+    $('runSrv').onclick = function () {
+      $('launchState').textContent = 'Поиск запущенного сервера…';
+      findSrv().then(function (p) {
+        if (p) { srvUp(p, true); return; }
+        $('launchState').textContent = 'Запуск через ссылку dtrepair:…';
+        location.href = 'dtrepair://start/?nobrowser';
+        poll(120, true, function (el) {
+          if (el > 5) { $('launchHelp').classList.remove('hidden'); $('launchState').textContent = 'Ждём сервер… Если ничего не произошло — быстрый запуск ещё не установлен (см. ниже).'; }
+        });
+      });
+    };
+    $('dlSrv').onclick = function () {
+      dlServer(); $('launchHelp').classList.remove('hidden');
+      $('launchState').textContent = 'Откройте скачанный файл — инструмент откроется в новой вкладке. Ждём сервер…';
+      poll(600, false);
+    };
+  }
+  $('dlSrv2').onclick = dlServer;
+  function renderProto() {
+    var pr = INFO && INFO.proto;
+    if (!pr || !INFO.windows) { $('protoInfo').textContent = ''; $('protoDel').classList.add('hidden'); return; }
+    $('protoInfo').innerHTML = pr.installed ? 'Быстрый запуск (<code>dtrepair:</code>) установлен — <code>' + esc(pr.dir) + '</code>' : 'Быстрый запуск не установлен — он регистрируется при запуске DipTrace-XML-Repair.cmd.';
+    $('protoDel').classList.toggle('hidden', !pr.installed);
+  }
+  $('protoDel').onclick = function () {
+    if (!confirm('Удалить быстрый запуск? Будут удалены раздел HKCU\\Software\\Classes\\dtrepair и папка ' + INFO.proto.dir + '. Работающий сервер продолжит работу.')) return;
+    api('/api/proto/uninstall', {}).then(function (pr) { INFO.proto = pr; renderProto(); toast('Быстрый запуск удалён'); }).catch(function (e) { toast(e.message, null, true); });
+  };
+  if (SRV) srvInit(); else launchInit();
+};

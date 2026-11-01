@@ -1,12 +1,19 @@
 # DipTrace XML Repair — локальный сервер (Windows PowerShell 5.1+, без установки).
 # Слушает только 127.0.0.1:<порт> (TcpListener, без прав администратора), принимает запросы только со своей страницы (токен + проверка Host/Origin).
 $ErrorActionPreference = 'Stop'
-$DTR_VERSION = '2.0'
+$DTR_VERSION = '2.1'
 # Test-Path без исключений: «Отказано в доступе» = «нет».
 function TP([string]$LiteralPath, [string]$PathType = 'Any') { if (-not $LiteralPath) { return $false }; try { Test-Path -LiteralPath $LiteralPath -PathType $PathType -ErrorAction Stop } catch { $false } }
-$dir = $env:DTR_DIR; if (-not $dir) { $dir = (Get-Location).Path }
+# Самодостаточный DipTrace-XML-Repair.cmd: <пакетный заголовок><этот сценарий><маркер><страница HTML>.
+$MK = '<' + '#DTR-HTML#' + '>'
+$psSelf = $null; $HTML = $null
+if ($env:DTR_SELF) {
+  try { $t = [IO.File]::ReadAllText($env:DTR_SELF, [Text.Encoding]::UTF8); $i = $t.LastIndexOf($MK); if ($i -gt 0) { $psSelf = $t.Substring(0, $i); $HTML = $t.Substring($i + $MK.Length).TrimStart([char[]]"`r`n") } } catch { }
+}
+$dir = $env:DTR_DIR; if (-not $dir) { if ($PSScriptRoot) { $dir = $PSScriptRoot } else { $dir = (Get-Location).Path } }
 $htmlPath = Join-Path $dir 'diptrace-xml-repair.html'
-if (-not (TP $htmlPath)) { Write-Host "Не найден $htmlPath — положите сценарий рядом с diptrace-xml-repair.html"; exit 1 }
+if (-not $HTML -and -not (TP $htmlPath)) { Write-Host "Не найдена страница $htmlPath. Скачайте DipTrace-XML-Repair.cmd из самого инструмента (кнопка «Скачать DipTrace-XML-Repair.cmd»)."; exit 1 }
+$noBrowser = ($env:DTR_NOBROWSER -eq '1'); foreach ($a in $args) { if ([string]$a -match 'nobrowser') { $noBrowser = $true } }
 $isWin = ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT)
 if ($env:APPDATA) { $cfgDir = Join-Path $env:APPDATA 'dt-xml-repair' } else { $cfgDir = Join-Path $HOME '.dt-xml-repair' }
 $cfgFile = Join-Path $cfgDir 'config.json'
@@ -14,6 +21,45 @@ $token = [guid]::NewGuid().ToString('N')
 $dtData = $env:DTR_DTDATA; if (-not $dtData) { $dtData = 'C:\ProgramData\DipTrace\Data_Unicode' }
 $XML_EXT = @('.libxml', '.elixml', '.xml')
 $OUT_EXT = @('.libxml', '.elixml', '.xml', '.csv', '.txt')
+
+# ---------- быстрый запуск: ссылка dtrepair: (HKCU, без прав администратора) ----------
+$PROTO_KEY = 'Software\Classes\dtrepair'
+$instDir = $null; if ($env:LOCALAPPDATA) { $instDir = Join-Path $env:LOCALAPPDATA 'dt-xml-repair' }
+function Proto-Info {
+  $k = $null; $cmd = ''
+  if ($isWin) { try { $k = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($PROTO_KEY + '\shell\open\command'); if ($k) { $cmd = [string]$k.GetValue(''); $k.Close() } } catch { } }
+  [ordered]@{ installed = [bool]$cmd; dir = $instDir; command = $cmd }
+}
+function Install-Proto {
+  if (-not ($isWin -and $psSelf -and $HTML -and $instDir) -or $env:DTR_NOINSTALL -eq '1') { return }
+  try {
+    if (-not (TP $instDir)) { [void](New-Item -ItemType Directory -Path $instDir -Force) }
+    $ps1 = Join-Path $instDir 'server.ps1'
+    [IO.File]::WriteAllText($ps1, $psSelf, (New-Object Text.UTF8Encoding $true))
+    [IO.File]::WriteAllText((Join-Path $instDir 'diptrace-xml-repair.html'), $HTML, (New-Object Text.UTF8Encoding $false))
+    $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($PROTO_KEY)
+    $k.SetValue('', 'URL:DipTrace XML Repair'); $k.SetValue('URL Protocol', ''); $k.Close()
+    $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($PROTO_KEY + '\shell\open\command')
+    $k.SetValue('', '"' + $exe + '" -NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Minimized -File "' + $ps1 + '" "%1"'); $k.Close()
+    Write-Host ('Быстрый запуск установлен: кнопка «Запустить сервер» в инструменте запускает ' + $ps1)
+  } catch { Write-Host ('Быстрый запуск не установлен: ' + $_.Exception.Message) }
+}
+function Uninstall-Proto {
+  try { [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($PROTO_KEY, $false) } catch { }
+  if ($instDir -and (TP $instDir)) { Remove-Item -LiteralPath $instDir -Recurse -Force -ErrorAction SilentlyContinue }
+}
+# Уже запущен? (одна копия сервера)
+function Ping-Port([int]$p) {
+  try {
+    $c = New-Object Net.Sockets.TcpClient; $ar = $c.BeginConnect('127.0.0.1', $p, $null, $null)
+    if (-not $ar.AsyncWaitHandle.WaitOne(300)) { $c.Close(); return $false }
+    $c.EndConnect($ar); $c.ReceiveTimeout = 1500; $s = $c.GetStream()
+    $q = [Text.Encoding]::ASCII.GetBytes("GET /api/ping HTTP/1.1`r`nHost: 127.0.0.1:$p`r`nConnection: close`r`n`r`n"); $s.Write($q, 0, $q.Length)
+    $m = New-Object IO.MemoryStream; $b = New-Object byte[] 4096; try { while (($n = $s.Read($b, 0, 4096)) -gt 0) { $m.Write($b, 0, $n) } } catch { }
+    $c.Close(); return ([Text.Encoding]::UTF8.GetString($m.ToArray()) -match '"app":"dt-xml-repair"')
+  } catch { return $false }
+}
 
 # ---------- JSON ----------
 $J_CTRL = New-Object Text.RegularExpressions.Regex '[\x00-\x1f]'
@@ -142,7 +188,7 @@ function Pick($kind, $start) {
 }
 
 # ---------- HTTP ----------
-$REASON = @{ 200 = 'OK'; 400 = 'Bad Request'; 403 = 'Forbidden'; 404 = 'Not Found'; 409 = 'Conflict'; 500 = 'Internal Server Error' }
+$REASON = @{ 204 = 'No Content'; 200 = 'OK'; 400 = 'Bad Request'; 403 = 'Forbidden'; 404 = 'Not Found'; 409 = 'Conflict'; 500 = 'Internal Server Error' }
 function Send($ctx, [int]$code, [string]$type, [byte[]]$bytes) {
   if ($ctx.Sent) { return }
   if ($null -eq $bytes) { $bytes = [byte[]]@() }
@@ -197,21 +243,27 @@ function BodyJ($ctx) { FromJ ([Text.Encoding]::UTF8.GetString((BodyBytes $ctx)))
 
 function Handle($ctx) {
   $req = $ctx.Request; $raw = $req.RawUrl; $path = $raw; $qi = $raw.IndexOf('?'); if ($qi -ge 0) { $path = $raw.Substring(0, $qi) }
+  if ($path -eq '/api/ping') {
+    # Без токена и с любого источника: только признак «сервер запущен» (страница с GitHub Pages или file:// проверяет, можно ли перейти).
+    $ctx.RespHeaders['Access-Control-Allow-Origin'] = '*'; $ctx.RespHeaders['Access-Control-Allow-Private-Network'] = 'true'; $ctx.RespHeaders['Access-Control-Allow-Methods'] = 'GET'
+    if ($req.HttpMethod -eq 'OPTIONS') { Send $ctx 200 'text/plain' ([byte[]]@()); return }
+    SendJ $ctx 200 ('{"app":"dt-xml-repair","version":' + (J $DTR_VERSION) + ',"port":' + $port + '}'); return
+  }
   $hostH = [string]$req.Headers['Host']
   if (@("localhost:$port", "127.0.0.1:$port") -notcontains $hostH) { Err $ctx 403 'bad host'; return }
   $origin = [string]$req.Headers['Origin']
   if ($origin -and @("http://localhost:$port", "http://127.0.0.1:$port") -notcontains $origin) { Err $ctx 403 'bad origin'; return }
   if ($req.HttpMethod -eq 'GET' -and ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/diptrace-xml-repair.html')) {
-    $html = [IO.File]::ReadAllText($htmlPath, [Text.Encoding]::UTF8)
+    if ($HTML) { $html = $HTML } else { $html = [IO.File]::ReadAllText($htmlPath, [Text.Encoding]::UTF8) }
     $inj = 'window.DTR_SERVER={token:"' + $token + '",port:' + $port + ',version:"' + $DTR_VERSION + '"};'
-    $html = $html.Replace('/*__DTR_SERVER__*/', $inj)
+    $ph = '/*__DTR_' + 'SERVER__*/'; $pi = $html.IndexOf($ph); if ($pi -ge 0) { $html = $html.Substring(0, $pi) + $inj + $html.Substring($pi + $ph.Length) }
     Send $ctx 200 'text/html; charset=utf-8' ([Text.Encoding]::UTF8.GetBytes($html)); return
   }
   if (-not $path.StartsWith('/api/')) { Err $ctx 404 'not found'; return }
   if ([string]$req.Headers['X-DTR-Token'] -ne $token) { Err $ctx 403 'bad token'; return }
   $q = Query $ctx
   switch ($path) {
-    '/api/info' { SendJ $ctx 200 (JV ([ordered]@{ version = $DTR_VERSION; port = $port; computer = [Environment]::MachineName; user = [Environment]::UserName; html = $htmlPath; cfgFile = $cfgFile; config = (Load-Config); dt = (Get-DT); windows = $isWin })) }
+    '/api/info' { SendJ $ctx 200 (JV ([ordered]@{ version = $DTR_VERSION; port = $port; computer = [Environment]::MachineName; user = [Environment]::UserName; html = $htmlPath; cfgFile = $cfgFile; config = (Load-Config); dt = (Get-DT); windows = $isWin; proto = (Proto-Info) })) }
     '/api/procs' { SendJ $ctx 200 (JV ([ordered]@{ procs = @(Get-DTProcs) })) }
     '/api/config' { $o = BodyJ $ctx; SendJ $ctx 200 (JV (Save-Config $o)) }
     '/api/pick' { $o = BodyJ $ctx; SendJ $ctx 200 (JV ([ordered]@{ paths = @(Pick ([string]$o.kind) ([string]$o.start)) })) }
@@ -276,6 +328,7 @@ function Handle($ctx) {
       if ($isWin -and $p -and (TP $p)) { Start-Process explorer.exe -ArgumentList ('/select,"' + $p + '"') }
       SendJ $ctx 200 '{"ok":true}'
     }
+    '/api/proto/uninstall' { Uninstall-Proto; SendJ $ctx 200 (JV (Proto-Info)) }
     '/api/shutdown' { SendJ $ctx 200 '{"ok":true}'; $script:stop = $true }
     default { Err $ctx 404 'unknown api' }
   }
@@ -284,6 +337,8 @@ function Handle($ctx) {
 # ---------- запуск ----------
 $L = $null; $port = 0
 $p0 = 8765; if ($env:DTR_PORT) { $p0 = [int]$env:DTR_PORT }
+Install-Proto
+foreach ($p in $p0..($p0 + 3)) { if (Ping-Port $p) { Write-Host "Сервер уже запущен: http://127.0.0.1:$p/"; if ($isWin -and -not $noBrowser) { Start-Process "http://127.0.0.1:$p/" }; exit 0 } }
 foreach ($p in $p0..($p0 + 15)) {
   try { $l = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, $p); $l.ExclusiveAddressUse = $true; $l.Start(); $L = $l; $port = $p; break } catch { }
 }
@@ -292,7 +347,7 @@ $url = "http://127.0.0.1:$port/"
 Write-Host "Ремонт библиотек DipTrace XML $DTR_VERSION — локальный сервер"
 Write-Host "Адрес: $url   (только этот компьютер)"
 Write-Host 'Закройте это окно или нажмите «Остановить сервер» в инструменте, чтобы завершить.'
-if ($isWin -and $env:DTR_NOBROWSER -ne '1') { Start-Process $url }
+if ($isWin -and -not $noBrowser) { Start-Process $url }
 if ($env:DTR_READY) { [IO.File]::WriteAllText($env:DTR_READY, [string]$port) }
 $script:stop = $false; $DBG = ($env:DTR_DEBUG -eq '1')
 try {

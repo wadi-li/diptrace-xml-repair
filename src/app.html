@@ -73,6 +73,7 @@ details summary{cursor:pointer;font-weight:600}
 </head>
 <body>
 <script>/*__DTR_SERVER__*/</script>
+<script>window.DTR_PS = /*__SRVPS__*/"";</script>
 <header>
   <h1>Ремонт библиотек DipTrace XML</h1>
   <span class="mute small">.libxml · .elixml · работает без интернета</span>
@@ -83,9 +84,21 @@ details summary{cursor:pointer;font-weight:600}
 </header>
 <main>
 
+<section id="secLaunch" class="hidden">
+  <h2>Локальный сервер: папки и базы</h2>
+  <p class="small">Без сервера страница видит только файлы, выбранные вручную. С сервером — подключённые в DipTrace библиотеки, свои папки, папки 3D-моделей, замена исходного файла с резервной копией. Сервер встроен в эту страницу; интернет и GitHub не нужны.</p>
+  <div class="row"><button class="pri" id="runSrv">Запустить сервер</button><button id="dlSrv">Скачать DipTrace-XML-Repair.cmd</button><span id="launchState" class="small"></span></div>
+  <div id="launchHelp" class="note hidden small">
+    <b>Первый запуск на этом компьютере.</b> Браузер не может сам запускать программы, поэтому один раз: нажмите «Скачать DipTrace-XML-Repair.cmd» и откройте файл из панели загрузок (браузер или SmartScreen могут попросить подтвердить: «Сохранить» / «Подробнее → Выполнить в любом случае»).
+    Сервер откроет инструмент в новой вкладке и зарегистрирует для текущего пользователя ссылку <code>dtrepair:</code> (HKCU, без прав администратора; копия — <code>%LOCALAPPDATA%\dt-xml-repair</code>).
+    Дальше кнопка «Запустить сервер» запускает его сразу — браузер лишь спросит разрешение открыть приложение. Удалить быстрый запуск можно в разделе «Папки и базы».
+  </div>
+</section>
+
 <section id="secSrv" class="hidden">
   <h2>Папки и базы</h2>
   <div id="srvInfo" class="small"></div>
+  <div class="row small" style="margin-top:6px"><span id="protoInfo"></span><button id="protoDel" class="hidden">Удалить быстрый запуск</button><button id="dlSrv2">Скачать сервер (для другого ПК)</button></div>
   <h3>Подключено в DipTrace</h3>
   <p class="small mute">Из <code id="dtDataDir">C:\ProgramData\DipTrace\Data_Unicode</code>: <code>libgroups.dat</code> — группы и файлы библиотек, <code>libgroups_var.dat</code> — переменные путей. Формат не документирован, извлекаются только пути.</p>
   <div id="dtVars" class="small"></div>
@@ -213,5 +226,6 @@ details summary{cursor:pointer;font-weight:600}
 <script>
 /*__APP__*/
 </script>
+<script>window.DTR_SNAP = '<!DOCTYPE html>\n' + document.documentElement.outerHTML; DTR_START();</script>
 </body>
 </html>

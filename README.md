@@ -1,6 +1,6 @@
 # Ремонт библиотек DipTrace XML (.libxml / .elixml)
 
-[Скачать HTML](diptrace-xml-repair.html) · [Сценарий индексации 3D-моделей](dt-models3d-index.cmd)
+[Открыть онлайн](https://wadi-li.github.io/diptrace-xml-repair/) · [Скачать HTML](diptrace-xml-repair.html) · [Сценарий индексации 3D-моделей](dt-models3d-index.cmd)
 
 Автономный HTML-инструмент: `diptrace-xml-repair.html` (открыть в браузере, интернет не нужен).
 
@@ -15,3 +15,5 @@
 ## Автоматическая проверка 3D-моделей
 
 `dt-models3d-index.cmd` положить в папку с `diptrace-xml-repair.html` и запустить: он запишет `dt-models3d-index.js` (имена файлов и признак «только в облаке» OneDrive из папок `C:\Users\limar\OneDrive\DipTrace\models3d` и `C:\Program Files\DipTrace\models3d`). Инструмент подхватывает его сам при открытии и по кнопке «Проверить 3D-модели». Сценарий с другими путями можно скачать из самого инструмента.
+
+Онлайн-версия работает так же, файлы обрабатываются только в браузере и никуда не отправляются. Автоматическая проверка 3D-моделей по `dt-models3d-index.js` работает только в локальной копии HTML, лежащей рядом с этим файлом; онлайн доступен разовый выбор папок вручную.

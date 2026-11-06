@@ -73,7 +73,7 @@ details summary{cursor:pointer;font-weight:600}
 </head>
 <body>
 <script>/*__DTR_SERVER__*/</script>
-<script>window.DTR_PS = /*__SRVPS__*/""; window.DTR_CMDHDR = /*__CMDHDR__*/[];</script>
+<script>window.DTR_PS = /*__SRVPS__*/""; window.DTR_CMDHDR = /*__CMDHDR__*/[]; window.DTR_CORP = /*__CORP__*/false;</script>
 <header>
   <h1>Ремонт библиотек DipTrace XML</h1>
   <span class="mute small">.libxml · .elixml · работает без интернета</span>
@@ -86,8 +86,13 @@ details summary{cursor:pointer;font-weight:600}
 
 <section id="secLaunch" class="hidden">
   <h2>Локальный сервер: папки и базы</h2>
-  <p class="small">Без сервера страница видит только файлы, выбранные вручную. С сервером — подключённые в DipTrace библиотеки, свои папки, папки 3D-моделей, замена исходного файла с резервной копией. Сервер встроен в эту страницу; интернет и GitHub не нужны.</p>
+  <p class="small" id="launchIntro">Без сервера страница видит только файлы, выбранные вручную. С сервером — подключённые в DipTrace библиотеки, свои папки, папки 3D-моделей, замена исходного файла с резервной копией. Сервер встроен в эту страницу; интернет и GitHub не нужны.</p>
   <div class="row"><button class="pri" id="runSrv">Запустить сервер</button><button id="dlSrv">Скачать DipTrace-XML-Repair.cmd</button><span id="launchState" class="small"></span></div>
+  <div id="corpHelp" class="note hidden small">
+    <b>Корпоративная сборка</b> (для компьютеров с Kaspersky и другими строгими антивирусами): код сервера лежит отдельным файлом рядом со страницей.
+    Распакуйте архив в любую папку, например <code>C:\DipTrace\xml-repair</code>, и запустите <code>dt-xml-repair-server.ps1</code> правой кнопкой → «Выполнить с помощью PowerShell» (или <code>start-server.cmd</code>). Сервер откроет инструмент в браузере.
+    Если запуск сценариев запрещён групповой политикой или антивирус блокирует <code>dt-xml-repair-server.ps1</code>, нужно разрешение администратора (исключение для этой папки); без сервера работают все проверки файлов, выбранных вручную.
+  </div>
   <div id="launchHelp" class="note hidden small">
     <b>Первый запуск на этом компьютере.</b> Браузер не может сам запускать программы, поэтому один раз: нажмите «Скачать DipTrace-XML-Repair.cmd» и откройте файл из панели загрузок (браузер или SmartScreen могут попросить подтвердить: «Сохранить» / «Подробнее → Выполнить в любом случае»).
     Файл копирует себя как обычный сценарий <code>%LOCALAPPDATA%\dt-xml-repair\server.ps1</code> и запускает его в Windows PowerShell — без установки и прав администратора, реестр не трогает.

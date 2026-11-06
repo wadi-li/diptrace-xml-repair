@@ -247,7 +247,8 @@ window.DTR_START = function () {
     m3rep.list.forEach(function (x) { rows.push([cur.name, x.i, x.name, SN[x.state], x.ref, x.root === 'my' ? '%my3dmodels%' : x.root === 'main' ? '%maindir%\\models3d' : '']); });
     saveCsv(cur, '.3d.csv', rows);
   };
-  function b64(s) { var u = new TextEncoder().encode(s), b = ''; for (var i = 0; i < u.length; i++) b += String.fromCharCode(u[i]); return btoa(b); }
+  /*CORP-STRIP-BEGIN*/
+  function psq(v) { return "'" + String(v || '').replace(/'/g, "''") + "'"; }
   function makeCmd(my, main) {
     return [
       '<# : DipTrace 3D models index (batch + PowerShell)',
@@ -255,18 +256,19 @@ window.DTR_START = function () {
       'setlocal',
       'set "DTR_DIR=%~dp0"',
       'set "DTR_SELF=%~f0"',
-      'powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ([IO.File]::ReadAllText($env:DTR_SELF))"',
+      'set "DTR_HOME=%LOCALAPPDATA%\\dt-xml-repair"',
+      'powershell -NoProfile -Command "[void][IO.Directory]::CreateDirectory($env:DTR_HOME); [IO.File]::WriteAllText($env:DTR_HOME + \'\\models3d-index.ps1\', [IO.File]::ReadAllText($env:DTR_SELF, [Text.Encoding]::UTF8), (New-Object Text.UTF8Encoding $true))"',
+      'if not errorlevel 1 powershell -NoProfile -ExecutionPolicy Bypass -File "%DTR_HOME%\\models3d-index.ps1"',
       'pause',
       'exit /b',
       '#>',
       '# Пишет рядом с собой dt-models3d-index.js — список файлов папок 3D-моделей для «Ремонт библиотек DipTrace XML».',
       '# Файлы не открываются и из OneDrive не скачиваются: читаются только имена и атрибуты.',
       '$ErrorActionPreference = "SilentlyContinue"',
-      'function D($b) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b)) }',
       'function J($s) { \'"\' + (($s -replace \'\\\\\', \'\\\\\') -replace \'"\', \'\\"\') + \'"\' }',
       '$roots = @(',
-      '  @{ key = "my";   cands = @((D "' + b64(my) + '"), "$env:OneDrive\\DipTrace\\models3d", "$env:USERPROFILE\\OneDrive\\DipTrace\\models3d", "$env:USERPROFILE\\Documents\\DipTrace\\models3d") },',
-      '  @{ key = "main"; cands = @((D "' + b64(main) + '"), "C:\\DipTrace\\models3d", "$env:ProgramFiles\\DipTrace\\models3d", "${env:ProgramFiles(x86)}\\DipTrace\\models3d") }',
+      '  @{ key = "my";   cands = @(' + psq(my) + ', "$env:OneDrive\\DipTrace\\models3d", "$env:USERPROFILE\\OneDrive\\DipTrace\\models3d", "$env:USERPROFILE\\Documents\\DipTrace\\models3d") },',
+      '  @{ key = "main"; cands = @(' + psq(main) + ', "C:\\DipTrace\\models3d", "$env:ProgramFiles\\DipTrace\\models3d", "${env:ProgramFiles(x86)}\\DipTrace\\models3d") }',
       ')',
       '$dir = $env:DTR_DIR; if (-not $dir) { $dir = (Get-Location).Path }',
       '$out = Join-Path $dir "dt-models3d-index.js"',
@@ -300,6 +302,8 @@ window.DTR_START = function () {
       ''
     ].join('\r\n');
   }
+  /*CORP-STRIP-END*/
+  if (window.DTR_CORP) { $('m3CmdRow').classList.add('hidden'); $('m3Help').innerHTML = 'Без сервера список файлов моделей взять неоткуда: браузер не читает диск. Запустите <code>dt-xml-repair-server.ps1</code> (раздел «Локальный сервер») — проверка 3D-моделей по папкам заработает автоматически. Можно также указать файлы моделей вручную ниже.'; }
   $('m3Cmd').onclick = function () { download('dt-models3d-index.cmd', makeCmd($('preMy').value.trim(), $('preMain').value.trim()), 'application/octet-stream'); };
   window.__makeCmd = makeCmd;
   function bindDir(btn, input, cnt, key) {
@@ -624,11 +628,12 @@ window.DTR_START = function () {
   };
   // ---------- самодостаточный запуск сервера ----------
   var PORTS = [8765, 8766, 8767, 8768];
+  /*CORP-STRIP-BEGIN*/
   function pageSnap() {
     return String(window.DTR_SNAP || '').replace(/window\.DTR_SERVER=\{token:\"[0-9a-f]{32}\",port:\d+,version:\"[^\"]*\"\};/, '/*__DTR_' + 'SERVER__*/')
       .replace(/<script\b[^>]*\bsrc=[^>]*>\s*<\/script>/gi, '');   // скрипты, внедрённые фильтрами (AdGuard и т.п.)
   }
-  // Сервер с встроенной страницей: обычный сценарий PowerShell (страница — здесь-строка $EMBED_HTML), без iex/кодирования.
+  // Сервер с встроенной страницей: обычный сценарий PowerShell (страница — здесь-строка $EMBED_HTML), без динамического выполнения.
   function makeServerPs1() {
     var ps = String(window.DTR_PS || '').replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
     var emb = pageSnap().replace(/^'@/mg, " '@");
@@ -658,6 +663,7 @@ window.DTR_START = function () {
     dlBlob(install ? 'dtrepair-install.reg' : 'dtrepair-uninstall.reg', [utf16(t.join('\r\n'))], 'application/octet-stream');
     toast('Откройте скачанный .reg и подтвердите импорт в реестр (раздел текущего пользователя, без прав администратора). Затем обновите эту страницу.');
   }
+  /*CORP-STRIP-END*/
   function ping(p) {
     var c = window.AbortController ? new AbortController() : null, t = setTimeout(function () { if (c) c.abort(); }, 1500);
     return fetch('http://127.0.0.1:' + p + '/api/ping', { mode: 'no-cors', cache: 'no-store', signal: c ? c.signal : undefined })
@@ -681,7 +687,18 @@ window.DTR_START = function () {
   }
   function launchInit() {
     $('secLaunch').classList.remove('hidden');
-    if (!window.DTR_PS) { $('dlSrv').disabled = true; $('runSrv').disabled = true; $('launchState').textContent = 'Сборка без встроенного сервера.'; return; }
+    if (!window.DTR_PS) {
+      // Корпоративная сборка: страница не содержит кода сервера и не формирует исполняемые файлы (эвристики антивирусов).
+      $('dlSrv').classList.add('hidden'); $('launchHelp').classList.add('hidden'); $('corpHelp').classList.remove('hidden');
+      $('runSrv').textContent = 'Открыть запущенный сервер';
+      $('launchIntro').textContent = 'Без сервера страница видит только файлы, выбранные вручную. С сервером — подключённые в DipTrace библиотеки, свои папки, папки 3D-моделей, замена исходного файла с резервной копией. Интернет и GitHub не нужны.';
+      findSrv().then(function (p) { if (p) srvUp(p, false); });
+      $('runSrv').onclick = function () {
+        $('launchState').textContent = 'Поиск запущенного сервера…';
+        findSrv().then(function (p) { if (p) srvUp(p, true); else { $('launchState').textContent = 'Сервер не запущен — запустите dt-xml-repair-server.ps1 (см. ниже), страница перейдёт на него сама.'; poll(600, true); } });
+      };
+      return;
+    }
     findSrv().then(function (p) { if (p) srvUp(p, false); });
     $('runSrv').onclick = function () {
       $('launchState').textContent = 'Поиск запущенного сервера…';
@@ -703,6 +720,7 @@ window.DTR_START = function () {
   $('dlSrv2').onclick = dlServer;
   function renderProto() {
     var pr = INFO && INFO.proto;
+    if (window.DTR_CORP || !window.DTR_PS) { $('dlSrv2').classList.add('hidden'); pr = null; }
     if (!pr || !INFO.windows) { $('protoInfo').textContent = ''; $('protoDel').classList.add('hidden'); $('protoReg').classList.add('hidden'); return; }
     var stable = pr.script && pr.dir && pr.script.toLowerCase().indexOf(pr.dir.toLowerCase()) === 0;
     $('protoInfo').innerHTML = pr.installed ? 'Быстрый запуск (<code>dtrepair:</code>) установлен: <code>' + esc(pr.command) + '</code>'

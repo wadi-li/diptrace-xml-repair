@@ -1,7 +1,7 @@
 # DipTrace XML Repair — локальный сервер (Windows PowerShell 5.1+, без установки).
 # Слушает только 127.0.0.1:<порт> (TcpListener, без прав администратора), принимает запросы только со своей страницы (токен + проверка Host/Origin).
 $ErrorActionPreference = 'Stop'
-$DTR_VERSION = '2.2'
+$DTR_VERSION = '2.3'
 # Test-Path без исключений: «Отказано в доступе» = «нет».
 function TP([string]$LiteralPath, [string]$PathType = 'Any') { if (-not $LiteralPath) { return $false }; try { Test-Path -LiteralPath $LiteralPath -PathType $PathType -ErrorAction Stop } catch { $false } }
 # Страница либо встроена в этот файл ($EMBED_HTML — здесь-строка перед кодом сервера, так собирается DipTrace-XML-Repair.cmd),

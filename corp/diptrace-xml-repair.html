@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ремонт библиотек DipTrace XML</title>
+<style>
+:root{--bg:#f6f7f5;--panel:#ffffff;--ink:#1f2523;--mute:#5d6662;--line:#dfe3df;--soft:#eef1ee;--acc:#2f6f62;--acc-ink:#fff;--err:#b4382e;--err-bg:#fbeceb;--warn:#9a6400;--warn-bg:#fdf3df;--info:#3b5f8a;--info-bg:#e9f0f8;--ok:#2e7d4f;--ok-bg:#e6f4ec;--mono:ui-monospace,"Cascadia Mono",Consolas,"Liberation Mono",monospace;--r:8px}
+[data-theme=dark]{--bg:#161a19;--panel:#1e2322;--ink:#e3e8e5;--mute:#9aa5a0;--line:#323a37;--soft:#262c2a;--acc:#5fb3a1;--acc-ink:#0e1312;--err:#ef8a80;--err-bg:#3a2321;--warn:#e3b45c;--warn-bg:#382d17;--info:#8fb3e0;--info-bg:#1f2b3a;--ok:#7cc79a;--ok-bg:#1d3226}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .sp{flex:1}
+main{max-width:1240px;margin:0 auto;padding:16px 20px 60px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+h2{font-size:15px;margin:0 0 10px;font-weight:600}
+h3{font-size:14px;margin:12px 0 6px;font-weight:600}
+p{margin:6px 0}
+.mute{color:var(--mute)}
+.small{font-size:12.5px}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--soft);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#ablBox button{white-space:normal;text-align:left}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+button:disabled{opacity:.45;cursor:default}
+input[type=text],input[type=search],select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+input[type=text]{width:100%}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+#drop{border:2px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;color:var(--mute);cursor:pointer}
+#drop.over{border-color:var(--acc);color:var(--acc)}
+.tw{overflow-x:auto}
+@media(max-width:600px){header{flex-wrap:wrap}header .mute{display:none}main{padding:10px}}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--mute);font-size:12.5px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+code,.mono{font-family:var(--mono);font-size:12.5px}
+.b{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;font-weight:600}
+.b.error{background:var(--err-bg);color:var(--err)}.b.warn{background:var(--warn-bg);color:var(--warn)}.b.info{background:var(--info-bg);color:var(--info)}.b.ok{background:var(--ok-bg);color:var(--ok)}
+tr.grp{cursor:pointer}
+tr.grp:hover td{background:var(--soft)}
+tr.det td{background:var(--soft);padding:0}
+.det-in{max-height:320px;overflow:auto;padding:4px 8px}
+.det-in table td{border-bottom:1px dashed var(--line);font-size:12.5px}
+.files td{cursor:pointer}
+.files tr.sel td{background:var(--soft)}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;font-size:13px}
+.kv b{font-weight:600}
+.note{border-left:3px solid var(--acc);background:var(--soft);padding:8px 12px;border-radius:0 6px 6px 0;margin:8px 0}
+.note.warn{border-left-color:var(--warn)}
+.list{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.list label{display:flex;gap:8px;padding:3px 8px;border-bottom:1px solid var(--line);font-size:13px}
+.list label:hover{background:var(--soft)}
+.steps{font-size:13px}
+.steps li{margin:2px 0}
+.hidden{display:none!important}
+a{color:var(--acc)}
+.pill{display:inline-block;border:1px solid var(--line);border-radius:12px;padding:2px 9px;font-size:12.5px;margin:2px 4px 2px 0}
+.bigstate{font-size:15px;font-weight:600;margin:6px 0}
+details summary{cursor:pointer;font-weight:600}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:9;display:flex;gap:10px;align-items:center;max-width:min(900px,94vw);background:var(--panel);border:1px solid var(--acc);border-radius:8px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.15);font-size:13px}
+#toast.err{border-color:var(--err)}
+#toastMsg{word-break:break-all;flex:1 1 auto;min-width:0}
+#toast button{flex:0 0 auto;white-space:nowrap}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:2px 4px 2px 10px;font-size:12.5px;background:var(--soft)}
+.chip button{padding:0 7px;border:0;background:transparent}
+#libT td{font-size:12.5px}
+#libT tr.loaded td{background:var(--soft)}
+</style>
+</head>
+<body>
+<script>/*__DTR_SERVER__*/</script>
+<script>window.DTR_PS = ""; window.DTR_CMDHDR = []; window.DTR_CORP = true;</script>
+<header>
+  <h1>Ремонт библиотек DipTrace XML</h1>
+  <span class="mute small">.libxml · .elixml · работает без интернета</span>
+  <span class="sp"></span>
+  <span id="srvBadge" class="hidden small"></span>
+  <button id="srvStop" class="hidden" title="Завершить локальный сервер">Остановить сервер</button>
+  <button id="theme" title="Светлая / тёмная тема">Тёмная тема</button>
+</header>
+<main>
+
+<section id="secLaunch" class="hidden">
+  <h2>Локальный сервер: папки и базы</h2>
+  <p class="small" id="launchIntro">Без сервера страница видит только файлы, выбранные вручную. С сервером — подключённые в DipTrace библиотеки, свои папки, папки 3D-моделей, замена исходного файла с резервной копией. Сервер встроен в эту страницу; интернет и GitHub не нужны.</p>
+  <div class="row"><button class="pri" id="runSrv">Запустить сервер</button><button id="dlSrv">Скачать DipTrace-XML-Repair.cmd</button><span id="launchState" class="small"></span></div>
+  <div id="corpHelp" class="note hidden small">
+    <b>Корпоративная сборка</b> (для компьютеров с Kaspersky и другими строгими антивирусами): код сервера лежит отдельным файлом рядом со страницей.
+    Распакуйте архив в любую папку, например <code>C:\DipTrace\xml-repair</code>, и запустите <code>dt-xml-repair-server.ps1</code> правой кнопкой → «Выполнить с помощью PowerShell» (или <code>start-server.cmd</code>). Сервер откроет инструмент в браузере.
+    Если запуск сценариев запрещён групповой политикой или антивирус блокирует <code>dt-xml-repair-server.ps1</code>, нужно разрешение администратора (исключение для этой папки); без сервера работают все проверки файлов, выбранных вручную.
+  </div>
+  <div id="launchHelp" class="note hidden small">
+    <b>Первый запуск на этом компьютере.</b> Браузер не может сам запускать программы, поэтому один раз: нажмите «Скачать DipTrace-XML-Repair.cmd» и откройте файл из панели загрузок (браузер или SmartScreen могут попросить подтвердить: «Сохранить» / «Подробнее → Выполнить в любом случае»).
+    Файл копирует себя как обычный сценарий <code>%LOCALAPPDATA%\dt-xml-repair\server.ps1</code> и запускает его в Windows PowerShell — без установки и прав администратора, реестр не трогает.
+    Если антивирус или политика не дают запустить <code>.cmd</code>, скачайте <a href="#" id="dlPs1">server.ps1</a> и запустите его через контекстное меню «Выполнить с помощью PowerShell».
+    Чтобы потом запускать кнопкой «Запустить сервер», в разделе «Папки и базы» (уже с сервером) скачайте и импортируйте файл быстрого запуска <code>.reg</code>.
+  </div>
+</section>
+
+<section id="secSrv" class="hidden">
+  <h2>Папки и базы</h2>
+  <div id="srvInfo" class="small"></div>
+  <div class="row small" style="margin-top:6px"><span id="protoInfo"></span><button id="protoReg" class="hidden">Установить быстрый запуск (.reg)</button><button id="protoDel" class="hidden">Удалить быстрый запуск (.reg)</button><button id="dlSrv2">Скачать сервер (для другого ПК)</button></div>
+  <h3>Подключено в DipTrace</h3>
+  <p class="small mute">Из <code id="dtDataDir">C:\ProgramData\DipTrace\Data_Unicode</code>: <code>libgroups.dat</code> — группы и файлы библиотек, <code>libgroups_var.dat</code> — переменные путей. Формат не документирован, извлекаются только пути.</p>
+  <div id="dtVars" class="small"></div>
+  <div id="dtLibs"></div>
+  <div class="row" style="margin-top:6px"><button id="dtOpenXml">Открыть все XML из DipTrace</button><button id="dtReset">Сбросить группы библиотек…</button><span id="dtBaks" class="small"></span></div>
+  <h3>Мои папки с библиотеками</h3>
+  <div id="libDirs" class="row"></div>
+  <div class="row" style="margin-top:6px">
+    <button class="pri" id="addDirPick">Подключить папку…</button>
+    <input type="text" id="addDirPath" placeholder="или вставьте путь к папке" style="max-width:420px">
+    <button id="addDirBtn">Добавить</button>
+    <label class="small"><input type="checkbox" id="libRecurse" checked> с подпапками</label>
+    <button id="pickFiles">Открыть файлы…</button>
+  </div>
+  <div class="row" style="margin-top:8px"><input type="search" id="libQ" placeholder="Фильтр по имени"><button id="libOpenSel">Открыть отмеченные</button><button id="libOpenAll">Проверить все</button><button id="libRefresh">Обновить список</button><button id="csvAll">Сводный отчёт CSV</button><span id="libCnt" class="small mute"></span></div>
+  <div class="tw list" style="max-height:340px;margin-top:6px"><table><thead><tr><th style="width:28px"><input type="checkbox" id="libAll"></th><th>Библиотека</th><th>Папка</th><th class="num">Размер</th><th>Изменён</th><th>Состояние</th></tr></thead><tbody id="libT"></tbody></table></div>
+  <p class="small mute">Результаты записываются рядом с исходным файлом: <code>&lt;имя&gt;.fixed.&lt;ext&gt;</code>, отчёты CSV; тестовые части — в подпапку <code>dtr-test</code>. Исходный файл меняется только кнопкой «Исправить и заменить исходный» — с резервной копией <code>&lt;имя&gt;.bak-ГГГГММДД-ччммсс.&lt;ext&gt;</code>.</p>
+</section>
+
+<section>
+  <h2>1. Файлы</h2>
+  <div id="drop">Перетащите сюда .libxml / .elixml (можно несколько) или нажмите для выбора
+    <input id="fin" type="file" accept=".libxml,.elixml,.xml" multiple class="hidden"></div>
+  <div id="filesBox" class="hidden" style="margin-top:10px">
+    <div class="tw"><table class="files"><thead><tr><th>Файл</th><th>Тип</th><th class="num">Корпусов</th><th class="num">Компонентов</th><th class="num">Ошибки</th><th class="num">Предупр.</th><th class="num">Инфо</th><th>Повторная запись</th></tr></thead><tbody id="filesT"></tbody></table></div>
+    <p class="mute small">Щёлкните по строке, чтобы открыть файл. Исходные файлы не изменяются — результат скачивается отдельным файлом.</p>
+  </div>
+</section>
+
+<section id="secInfo" class="hidden">
+  <h2>2. Сведения о библиотеке</h2>
+  <div class="grid2">
+    <div class="kv" id="info"></div>
+    <div id="verdict"></div>
+  </div>
+</section>
+
+<section id="sec3d">
+  <h2>3D-модели: наличие файлов</h2>
+  <div class="row"><button class="pri" id="m3Check">Проверить 3D-модели</button><button id="m3Csv" disabled>Отчёт по 3D CSV</button><span id="m3State" class="small"></span></div>
+  <div id="m3Rep" style="margin-top:8px"></div>
+  <details id="m3Setup" style="margin-top:10px"><summary class="small">Настройка автоматической проверки</summary>
+    <p class="small" id="m3Help">Браузер не может сам читать диск, поэтому список файлов готовит сценарий <code>dt-models3d-index.cmd</code>. Положите его в ту же папку, что и этот HTML, и запустите двойным щелчком: он запишет рядом <code>dt-models3d-index.js</code> со списком файлов обеих папок. Инструмент читает этот список сам — при открытии и по кнопке «Проверить 3D-модели». Содержимое моделей не читается и из OneDrive не скачивается; файлы «только в облаке» отмечаются отдельно. После добавления моделей запустите сценарий снова.</p>
+    <div class="grid2">
+      <div><b class="small">Свои модели (%my3dmodels%)</b>
+        <input type="text" id="preMy" value="C:\Users\limar\OneDrive\DipTrace\models3d"></div>
+      <div><b class="small">Модели DipTrace (%maindir%\models3d)</b>
+        <input type="text" id="preMain" value="C:\Program Files\DipTrace\models3d"></div>
+    </div>
+    <div class="row" style="margin-top:8px" id="m3CmdRow"><button id="m3Cmd">Скачать сценарий dt-models3d-index.cmd</button>
+      <span class="small mute">Если путь не найден, сценарий пробует <code>%OneDrive%\DipTrace\models3d</code>, <code>C:\DipTrace\models3d</code>, <code>%ProgramFiles%\DipTrace\models3d</code>.</span></div>
+    <p class="small mute" style="margin-top:10px" id="m3Manual">Разовая проверка без сценария — выбор папки вручную:
+      <button id="pickMy">Свои модели…</button> <span id="cntMy"></span>
+      <button id="pickMain">Модели DipTrace…</button> <span id="cntMain"></span></p>
+    <input type="file" id="dirMy" webkitdirectory multiple class="hidden">
+    <input type="file" id="dirMain" webkitdirectory multiple class="hidden">
+  </details>
+</section>
+
+<section id="secDiag" class="hidden">
+  <h2>3. Диагностика</h2>
+  <div class="row" style="margin-bottom:8px">
+    <label><input type="checkbox" class="sevf" value="error" checked> ошибки</label>
+    <label><input type="checkbox" class="sevf" value="warn" checked> предупреждения</label>
+    <label><input type="checkbox" class="sevf" value="info" checked> сведения</label>
+    <input type="search" id="q" placeholder="Поиск по объекту или тексту" style="min-width:240px">
+    <span class="sp" style="flex:1"></span>
+    <button id="selRec">Отметить рекомендуемые</button>
+    <button id="selNone">Снять все</button>
+    <button id="csvIss">Отчёт CSV</button>
+  </div>
+  <div class="tw"><table><thead><tr><th style="width:34px">Испр.</th><th>Уровень</th><th>Код</th><th>Проблема</th><th class="num">Кол-во</th><th>Первый объект</th></tr></thead><tbody id="diagT"></tbody></table></div>
+  <p class="small mute">«всегда» — исправляется самим разбором файла при любом сохранении (обрезанные теги, мусор, NUL, неэкранированные символы). Щёлкните по строке, чтобы увидеть все места.</p>
+</section>
+
+<section id="secFix" class="hidden">
+  <h2>4. Исправление</h2>
+  <div class="row">
+    <button class="pri" id="doFix">Исправить отмеченное и скачать</button>
+    <button id="doReplace" class="hidden">Исправить и заменить исходный…</button>
+    <button id="csvLog" disabled>Журнал исправлений CSV</button>
+    <label class="small"><input type="checkbox" id="keepName" checked> сохранить Name и UID32 библиотеки</label>
+  </div>
+  <div id="fixRes" class="small" style="margin-top:8px"></div>
+  <div class="note small">Перед открытием в DipTrace закройте исходную библиотеку и откройте исправленную через «Library / Open» (или импорт DipXML) в отдельной группе. Если библиотека была подключена в «Library Setup», замените файл после проверки.</div>
+</section>
+
+<section id="secBis" class="hidden">
+  <h2>5. Поиск причины зависания</h2>
+  <p class="small">Если проверка не находит ошибок, а DipTrace всё равно зависает, причину ищут делением: инструмент формирует две половины библиотеки, вы открываете каждую в DipTrace и отмечаете результат. За ~log₂N шагов остаётся один корпус или компонент. У тестовых копий меняются Name и UID32, чтобы они не конфликтовали с основной библиотекой в Library Manager.</p>
+  <div class="row" style="margin:6px 0">
+    <span class="small">Делить по:</span>
+    <select id="bisMode"><option value="pat">корпусам</option><option value="comp">компонентам</option></select>
+    <span class="small">Основа:</span>
+    <select id="bisBase"><option value="orig">исходный файл</option><option value="fixed">исправленный файл</option></select>
+    <button id="bisStart">Начать заново</button>
+  </div>
+  <div id="bisBox"></div>
+  <h3>Проверка гипотез на всей библиотеке</h3>
+  <p class="small mute">Каждый вариант — копия библиотеки без одного класса данных. Если какой-то вариант открывается, а исходный нет — причина в этом классе данных.</p>
+  <div id="ablBox" class="row"></div>
+  <details style="margin-top:10px"><summary class="small">Ручной выбор объектов</summary>
+    <div class="row" style="margin:6px 0"><input type="search" id="manQ" placeholder="Фильтр по имени"><button id="manAll">Отметить видимые</button><button id="manNone">Снять</button>
+      <button id="manOnly">Скачать только отмеченные</button><button id="manWithout">Скачать без отмеченных</button><span id="manCnt" class="small mute"></span></div>
+    <div class="list" id="manList"></div>
+  </details>
+</section>
+
+<section id="secHelp">
+  <h2>Если файл в порядке, а DipTrace зависает</h2>
+  <ul class="small">
+    <li><b>Повреждённые настройки групп библиотек.</b> По совету поддержки DipTrace на форуме: временно переименуйте <code>libgroups.dat</code> и <code>libgroups_var.dat</code> в <code>C:\ProgramData\DipTrace\Data_Unicode</code> (или всю папку) — при запуске они создаются заново; затем подключите библиотеки снова. <a href="https://diptrace.com/forum/viewtopic.php?t=16780" target="_blank" rel="noopener">Форум DipTrace</a></li>
+    <li><b>Файлы OneDrive «только в облаке».</b> Библиотеки и 3D-модели в <code>OneDrive\DipTrace</code> при открытии могут скачиваться; при плохой связи это выглядит как зависание. Отметьте папку «Всегда хранить на этом устройстве». Вариант «без ссылок на 3D-модели» в разделе 5 помогает это проверить.</li>
+    <li><b>Сетевые пути</b> <code>\\сервер\…</code> к моделям или библиотекам — при недоступном ресурсе Windows ждёт тайм-аут.</li>
+    <li><b>Установка в Program Files.</b> Поддержка DipTrace рекомендует ставить программу в отдельную папку, например <code>C:\DipTrace</code>. <a href="https://diptrace.com/rus/support/faq/" target="_blank" rel="noopener">FAQ DipTrace</a></li>
+    <li><b>Если найден конкретный корпус,</b> а формальных ошибок в нём нет — отправьте его копию («Скачать только его») в <a href="mailto:support@diptrace.com">support@diptrace.com</a>.</li>
+  </ul>
+  <p class="small mute">Проверки построены по спецификациям формата, сгенерированным из сериализатора DipTrace: <a href="https://diptrace.com/support/tutorials/xml_specs_PattEdit_html/" target="_blank" rel="noopener">Pattern Editor XML</a>, <a href="https://diptrace.com/support/tutorials/xml_specs_CompEdit_html/" target="_blank" rel="noopener">Component Editor XML</a>. Сохранение без правок повторяет файл побайтно (проверяется при загрузке).</p>
+</section>
+</main>
+<div id="toast" class="hidden"><div id="toastMsg"></div><button id="toastShow" class="hidden">Показать в Проводнике</button><button id="toastX" title="Закрыть">×</button></div>
+<script>
+/* Терпимый XML-разборщик и сериализатор в стиле DipTrace.
+   Узел: {t, a:[[k,v],...], c:[], x:string|null, ln, sc:' />'|'/>'|null, ex:bool} */
+var DX = (function () {
+  'use strict';
+  var ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+  var BADCH = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]/;
+
+  function decode(s, iss, ln) {
+    if (s.indexOf('&') < 0) return s;
+    return s.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[A-Za-z][A-Za-z0-9]*)?(;?)/g, function (m, e, semi) {
+      if (e && semi) {
+        if (e[0] === '#') {
+          var cp = e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+          if (cp > 0 && cp < 0x110000 && !(cp < 32 && cp !== 9 && cp !== 10 && cp !== 13)) return String.fromCodePoint(cp);
+          iss.push({ code: 'X_CHARREF', ln: ln, msg: 'Недопустимая символьная ссылка ' + m + ' — удалена' });
+          return '';
+        }
+        if (ENT.hasOwnProperty(e)) return ENT[e];
+      }
+      iss.push({ code: 'X_AMP', ln: ln, msg: 'Неэкранированный или неизвестный «' + m + '» — сохранён как текст' });
+      return m;
+    });
+  }
+
+  function parse(src) {
+    var iss = [], bom = false;
+    if (src.charCodeAt(0) === 0xFEFF) { bom = true; src = src.slice(1); }
+    var nCRLF = 0, nLF = 0, nCR = 0;
+    for (var i = 0; i < src.length; i++) {
+      var ch = src.charCodeAt(i);
+      if (ch === 13) { if (src.charCodeAt(i + 1) === 10) { nCRLF++; i++; } else nCR++; }
+      else if (ch === 10) nLF++;
+    }
+    var nl = nCRLF >= nLF ? '\r\n' : '\n';
+    if ((nCRLF && nLF) || nCR) iss.push({ code: 'X_NL', ln: 0, msg: 'Смешанные переводы строк: CRLF ' + nCRLF + ', LF ' + nLF + ', CR ' + nCR });
+    // управляющие символы
+    if (BADCH.test(src)) {
+      var cnt = 0, first = 0, line = 1;
+      for (var j = 0; j < src.length; j++) {
+        var c = src.charCodeAt(j);
+        if (c === 10) line++;
+        else if ((c < 32 && c !== 9 && c !== 13) || c === 0xFFFE || c === 0xFFFF) { cnt++; if (!first) first = line; }
+      }
+      iss.push({ code: 'X_CTRL', ln: first, msg: 'Недопустимые управляющие символы: ' + cnt + ' шт. (первый в строке ' + first + ') — удалены' });
+      src = src.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]/g, '');
+    }
+    var pos = 0, ln = 1, lnPos = 0, decl = null, root = null, stack = [], N = src.length, extraRoots = 0;
+    function lineAt(p) { while (lnPos < p) { var k = src.indexOf('\n', lnPos); if (k < 0 || k >= p) { lnPos = p; break; } ln++; lnPos = k + 1; } return ln; }
+    function addText(t, p) {
+      if (!stack.length) { if (/\S/.test(t)) iss.push({ code: 'X_OUTSIDE', ln: lineAt(p), msg: 'Текст вне корневого элемента — удалён' }); return; }
+      var top = stack[stack.length - 1];
+      if (top.c.length) { if (/\S/.test(t)) { iss.push({ code: 'X_MIXED', ln: lineAt(p), msg: 'Текст между дочерними элементами <' + top.t + '> — удалён' }); } return; }
+      top._x = (top._x || '') + t;
+    }
+    while (pos < N) {
+      var lt = src.indexOf('<', pos);
+      if (lt < 0) { addText(src.slice(pos), pos); break; }
+      if (lt > pos) addText(decode(src.slice(pos, lt), iss, lineAt(pos)), pos);
+      var nx = src.charAt(lt + 1);
+      if (src.startsWith('<?', lt)) {
+        var e1 = src.indexOf('?>', lt); if (e1 < 0) { iss.push({ code: 'X_TRUNC', ln: lineAt(lt), msg: 'Файл обрывается внутри объявления' }); break; }
+        var pi = src.slice(lt, e1 + 2); if (/^<\?xml\s/i.test(pi)) { if (decl || root) iss.push({ code: 'X_DECLPOS', ln: lineAt(lt), msg: 'Повторное или позднее объявление XML — удалено' }); else decl = pi; }
+        pos = e1 + 2; continue;
+      }
+      if (src.startsWith('<!--', lt)) {
+        var e2 = src.indexOf('-->', lt + 4); if (e2 < 0) { iss.push({ code: 'X_TRUNC', ln: lineAt(lt), msg: 'Незакрытый комментарий до конца файла' }); break; }
+        iss.push({ code: 'X_COMMENT', ln: lineAt(lt), msg: 'Комментарий XML — удалён' }); pos = e2 + 3; continue;
+      }
+      if (src.startsWith('<![CDATA[', lt)) {
+        var e3 = src.indexOf(']]>', lt); if (e3 < 0) { iss.push({ code: 'X_TRUNC', ln: lineAt(lt), msg: 'Незакрытый CDATA' }); break; }
+        addText(src.slice(lt + 9, e3), lt); iss.push({ code: 'X_CDATA', ln: lineAt(lt), msg: 'Блок CDATA преобразован в экранированный текст' }); pos = e3 + 3; continue;
+      }
+      if (src.startsWith('<!', lt)) {
+        var e4 = src.indexOf('>', lt); iss.push({ code: 'X_DOCTYPE', ln: lineAt(lt), msg: 'DOCTYPE/ENTITY — удалено' }); pos = e4 < 0 ? N : e4 + 1; continue;
+      }
+      if (!(nx === '/' || /[A-Za-z_:]/.test(nx))) {
+        iss.push({ code: 'X_LT', ln: lineAt(lt), msg: 'Неэкранированный «<» в тексте — экранирован' }); addText('<', lt); pos = lt + 1; continue;
+      }
+      // поиск конца тега с учётом кавычек
+      var q = 0, k2 = lt + 1, gt = -1;
+      for (; k2 < N; k2++) {
+        var cc = src.charCodeAt(k2);
+        if (q) { if (cc === q) q = 0; else if (cc === 60 && q) { /* < внутри значения */ } }
+        else if (cc === 34 || cc === 39) q = cc;
+        else if (cc === 62) { gt = k2; break; }
+        else if (cc === 60) { break; }
+      }
+      var L = lineAt(lt);
+      if (gt < 0) {
+        iss.push({ code: k2 >= N ? 'X_TRUNC' : 'X_TAG', ln: L, msg: k2 >= N ? 'Файл обрывается внутри тега — хвост отброшен' : 'Тег не закрыт «>» — фрагмент удалён' });
+        if (k2 >= N) break; pos = k2; continue;
+      }
+      var body = src.slice(lt + 1, gt); pos = gt + 1;
+      if (body[0] === '/') {
+        var name = body.slice(1).trim();
+        var at = -1; for (var s = stack.length - 1; s >= 0; s--) if (stack[s].t === name) { at = s; break; }
+        if (at < 0) { iss.push({ code: 'X_STRAY', ln: L, msg: 'Лишний закрывающий тег </' + name + '> — удалён' }); continue; }
+        while (stack.length - 1 > at) { var u = stack.pop(); iss.push({ code: 'X_UNCLOSED', ln: u.ln, msg: 'Тег <' + u.t + '> не был закрыт — закрыт перед </' + name + '> (стр. ' + L + ')' }); fin(u); }
+        fin(stack.pop()); continue;
+      }
+      var self = false, scs = null;
+      if (body[body.length - 1] === '/') { self = true; scs = /\s\/$/.test(body) ? ' />' : '/>'; body = body.slice(0, -1); }
+      var m = /^([^\s\/>]+)/.exec(body); var tag = m[1]; var rest = body.slice(tag.length);
+      var node = { t: tag, a: [], c: [], x: null, ln: L, sc: scs, ex: false };
+      var re = /\s*([^\s=\/>"']+)\s*=\s*("([^"]*)"|'([^']*)')/g, mm, last = 0, seen = {};
+      while ((mm = re.exec(rest))) {
+        if (mm.index !== last && /\S/.test(rest.slice(last, mm.index))) iss.push({ code: 'X_ATTR', ln: L, msg: 'Мусор в теге <' + tag + '>: «' + rest.slice(last, mm.index).trim().slice(0, 40) + '» — удалён' });
+        var key = mm[1], val = decode(mm[3] != null ? mm[3] : mm[4], iss, L);
+        if (/[<]/.test(mm[3] || mm[4] || '')) iss.push({ code: 'X_ATTRLT', ln: L, msg: 'Символ «<» в значении атрибута ' + key + ' — экранирован' });
+        if (seen[key]) iss.push({ code: 'X_DUPATTR', ln: L, msg: 'Повторный атрибут ' + key + ' в <' + tag + '> — оставлен первый' });
+        else { seen[key] = 1; node.a.push([key, val]); }
+        last = re.lastIndex;
+      }
+      if (/\S/.test(rest.slice(last))) iss.push({ code: 'X_ATTR', ln: L, msg: 'Мусор в теге <' + tag + '>: «' + rest.slice(last).trim().slice(0, 40) + '» — удалён' });
+      // элемент не может содержать сам себя (кроме Library и Pattern): закрыть открытый одноимённый
+      if (tag !== 'Library' && tag !== 'Pattern' && stack.length) {
+        var sameAt = -1; for (var s2 = stack.length - 1; s2 >= 0; s2--) if (stack[s2].t === tag) { sameAt = s2; break; }
+        if (sameAt >= 0) { while (stack.length > sameAt) { var u3 = stack.pop(); iss.push({ code: 'X_UNCLOSED', ln: u3.ln, msg: 'Тег <' + u3.t + '> не был закрыт — закрыт перед следующим <' + tag + '> (стр. ' + L + ')' }); fin(u3); } }
+      }
+      if (!stack.length) {
+        if (root) { extraRoots++; iss.push({ code: 'X_MULTIROOT', ln: L, msg: 'Второй корневой элемент <' + tag + '> — отброшен' }); if (!self) { /* пропустить поддерево */ stack.push(node); node._drop = true; } continue; }
+        root = node;
+      } else {
+        var par = stack[stack.length - 1];
+        if (par._x != null && /\S/.test(par._x)) iss.push({ code: 'X_MIXED', ln: L, msg: 'Текст и дочерние элементы в <' + par.t + '> — текст удалён' });
+        par._x = null; par.c.push(node);
+      }
+      if (!self) stack.push(node);
+    }
+    while (stack.length) { var u2 = stack.pop(); iss.push({ code: 'X_TRUNC', ln: u2.ln, msg: 'Тег <' + u2.t + '> не закрыт до конца файла — закрыт автоматически (файл, вероятно, обрезан)' }); fin(u2); }
+    function fin(n) {
+      if (n.c.length === 0 && n.sc == null) {
+        if (n._x != null && n._x !== '') n.x = n._x; else { n.x = null; n.ex = true; }
+      }
+      delete n._x;
+    }
+    if (!decl) iss.push({ code: 'X_DECL', ln: 1, msg: 'Нет объявления <?xml ...?> — будет добавлено' });
+    if (!bom) iss.push({ code: 'X_BOM', ln: 1, msg: 'Нет метки BOM (DipTrace записывает UTF-8 с BOM) — будет добавлена' });
+    return { root: root, decl: decl || '<?xml version="1.0" encoding="utf-8"?>', bom: bom, nl: nl, issues: iss };
+  }
+
+  function escT(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function escA(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  function serialize(doc, opt) {
+    opt = opt || {};
+    var out = [], nl = opt.nl || doc.nl || '\r\n';
+    function w(n) {
+      var s = '<' + n.t;
+      for (var i = 0; i < n.a.length; i++) s += ' ' + n.a[i][0] + '="' + escA(n.a[i][1]) + '"';
+      if (n.c.length) { out.push(s + '>'); for (var j = 0; j < n.c.length; j++) w(n.c[j]); out.push('</' + n.t + '>'); }
+      else if (n.x != null && n.x !== '') out.push(s + '>' + escT(n.x) + '</' + n.t + '>');
+      else if (n.ex && n.sc == null) out.push(s + '></' + n.t + '>');
+      else out.push(s + (n.sc != null ? n.sc : (n.a.length || /s$/.test(n.t) ? ' />' : '/>')));
+    }
+    out.push(doc.decl);
+    if (doc.root) w(doc.root);
+    var txt = out.join(nl) + nl;
+    return (opt.bom === false ? '' : '\uFEFF') + txt;
+  }
+
+  // помощники дерева
+  function kid(n, t) { if (!n) return null; for (var i = 0; i < n.c.length; i++) if (n.c[i].t === t) return n.c[i]; return null; }
+  function kids(n, t) { var r = []; if (!n) return r; for (var i = 0; i < n.c.length; i++) if (!t || n.c[i].t === t) r.push(n.c[i]); return r; }
+  function txt(n, t) { var k = kid(n, t); return k ? (k.x || '') : ''; }
+  function at(n, k) { if (!n) return null; for (var i = 0; i < n.a.length; i++) if (n.a[i][0] === k) return n.a[i][1]; return null; }
+  function setA(n, k, v) { for (var i = 0; i < n.a.length; i++) if (n.a[i][0] === k) { n.a[i][1] = String(v); return; } n.a.push([k, String(v)]); }
+  function delA(n, k) { for (var i = 0; i < n.a.length; i++) if (n.a[i][0] === k) { n.a.splice(i, 1); return true; } return false; }
+  function el(t, attrs, kids_, x) { return { t: t, a: attrs || [], c: kids_ || [], x: x == null ? null : x, ln: 0, sc: null, ex: false }; }
+  function setTxt(n, t, v) { var k = kid(n, t); if (!k) { k = el(t); n.c.push(k); } k.x = v; k.c = []; k.sc = null; k.ex = false; return k; }
+  function clone(n) { return JSON.parse(JSON.stringify(n, function (k, v) { return k.charAt(0) === '_' ? undefined : v; })); }
+  function remove(par, n) { var i = par.c.indexOf(n); if (i >= 0) par.c.splice(i, 1); }
+
+  return { parse: parse, serialize: serialize, kid: kid, kids: kids, txt: txt, at: at, setA: setA, delA: delA, el: el, setTxt: setTxt, clone: clone, remove: remove };
+})();
+if (typeof module !== 'undefined') module.exports = DX;
+
+/* Проверки и исправления библиотек DipTrace XML (.libxml / .elixml) */
+var DC = (function () {
+  'use strict';
+  var X = (typeof DX !== 'undefined') ? DX : require('./xml.js');
+  var kid = X.kid, kids = X.kids, txt = X.txt, at = X.at, setA = X.setA, delA = X.delA, el = X.el;
+
+  // ---- справочник кодов ----
+  // sev: error | warn | info ; fix: 'auto' (исправляется всегда при сохранении), true (есть исправление), false
+  var CODES = {
+    X_TRUNC: ['error', 'auto', 'Файл обрезан / не закрыты теги до конца файла'],
+    X_UNCLOSED: ['error', 'auto', 'Незакрытый тег'],
+    X_STRAY: ['error', 'auto', 'Лишний закрывающий тег'],
+    X_TAG: ['error', 'auto', 'Повреждённый тег'],
+    X_ATTR: ['error', 'auto', 'Мусор внутри тега'],
+    X_DUPATTR: ['error', 'auto', 'Повторный атрибут'],
+    X_MULTIROOT: ['error', 'auto', 'Несколько корневых элементов'],
+    X_CTRL: ['error', 'auto', 'Недопустимые управляющие символы (NUL и т. п.)'],
+    X_CHARREF: ['error', 'auto', 'Недопустимая символьная ссылка &#..;'],
+    X_AMP: ['warn', 'auto', 'Неэкранированный «&»'],
+    X_LT: ['warn', 'auto', 'Неэкранированный «<»'],
+    X_ATTRLT: ['warn', 'auto', '«<» в значении атрибута'],
+    X_MIXED: ['warn', 'auto', 'Текст между дочерними элементами'],
+    X_OUTSIDE: ['warn', 'auto', 'Текст вне корня'],
+    X_DOCTYPE: ['warn', 'auto', 'DOCTYPE / ENTITY'],
+    X_DECLPOS: ['warn', 'auto', 'Повторное объявление XML'],
+    X_CDATA: ['info', 'auto', 'CDATA'],
+    X_COMMENT: ['info', 'auto', 'Комментарии XML'],
+    X_NL: ['warn', 'auto', 'Смешанные переводы строк (приводятся к CRLF)'],
+    X_DECL: ['info', 'auto', 'Нет объявления XML'],
+    X_BOM: ['info', 'auto', 'Нет BOM'],
+    R_TYPE: ['error', false, 'Неизвестный тип корня Library'],
+    R_UNITS: ['error', true, 'Недопустимые единицы Units'],
+    R_NESTED: ['error', false, 'Нет вложенной библиотеки корпусов в .elixml'],
+    S_NONAME: ['error', true, 'Стиль площадки без имени'],
+    S_DUP: ['error', true, 'Повтор имени стиля площадки'],
+    S_TYPE: ['error', true, 'Недопустимый тип стиля площадки'],
+    S_HOLE: ['error', true, 'Сквозная площадка без отверстия'],
+    S_STACK: ['error', true, 'Нет MainStack у стиля площадки'],
+    S_SHAPE: ['error', true, 'Недопустимая форма MainStack'],
+    S_SIZE: ['error', true, 'Нулевой/неверный размер площадки'],
+    S_POLY: ['error', true, 'Полигональная площадка без точек'],
+    S_UNUSED: ['info', true, 'Неиспользуемые стили площадок'],
+    P_ID: ['error', true, 'Id корпусов не по порядку 0..N-1'],
+    P_STYLE: ['error', true, 'PatternStyle пуст или повторяется (.elixml)'],
+    P_NONAME: ['warn', true, 'Корпус без имени'],
+    P_DUPNAME: ['info', false, 'Повтор имени корпуса'],
+    P_MOUNT: ['warn', true, 'Недопустимое значение Mounting'],
+    P_MOUNTNONE: ['info', true, 'Mounting="None" (в спецификации такого значения нет)'],
+    P_TYPE: ['warn', true, 'Недопустимый тип шаблона Type'],
+    P_TPL: ['warn', true, 'Шаблон Lines: Int2 не совпадает с числом площадок'],
+    P_ORIENT: ['warn', true, 'Недопустимое Orientation'],
+    P_DEFPAD: ['error', true, 'DefPad отсутствует или ссылается на несуществующий стиль'],
+    P_PADSTYLE: ['error', true, 'Площадка ссылается на несуществующий стиль'],
+    P_PADID: ['error', true, 'Повтор или неверный Id площадки'],
+    P_PADNUM: ['info', false, 'Площадка без номера'],
+    P_PADSIDE: ['warn', true, 'Недопустимое Side площадки'],
+    P_NOPADS: ['info', false, 'Корпус без площадок'],
+    P_DUPCHILD: ['error', true, 'Повтор блока внутри элемента (два <Pads> и т. п.)'],
+    P_ORDER: ['info', true, 'Порядок блоков не как у DipTrace'],
+    G_SHID: ['warn', true, 'Повтор или неверный Id фигуры'],
+    G_SHTYPE: ['error', true, 'Недопустимый тип фигуры'],
+    G_SHPTS: ['error', true, 'Фигуре не хватает точек'],
+    G_SHTXT: ['warn', true, 'Текстовая фигура без строк'],
+    G_LAYER: ['warn', true, 'Недопустимый слой фигуры'],
+    G_SHPAD: ['warn', true, 'Фигура ссылается на несуществующую площадку'],
+    G_GROUP: ['warn', true, 'Ссылка на несуществующую группу'],
+    G_HOLEID: ['info', true, 'Повтор Id отверстия'],
+    G_DIMREF: ['warn', true, 'Размер ссылается на несуществующий объект'],
+    N_NUM: ['error', true, 'Нечисловое / бесконечное значение координаты или размера'],
+    N_COMMA: ['warn', true, 'Десятичная запятая в числе'],
+    N_BIG: ['warn', false, 'Подозрительно большая координата/размер'],
+    N_COUNT: ['warn', false, 'Очень много объектов в одном корпусе/символе'],
+    C_TREE: ['warn', true, 'Номера в дереве категорий не по порядку'],
+    C_REF: ['error', true, 'Ссылка на категорию / тип / подтип не совпадает с деревом'],
+    F_NONAME: ['error', true, 'Пользовательское поле без имени'],
+    F_DUP: ['warn', true, 'Повтор имени пользовательского поля'],
+    F_TYPE: ['warn', true, 'Недопустимый тип поля'],
+    F_NOTEXT: ['warn', true, 'Поле без элемента <Text>'],
+    M_NONE: ['info', true, 'Нет блока Model3D'],
+    M_UNC: ['warn', false, '3D-модель на сетевом пути (\\\\сервер) — при недоступности возможны долгие паузы'],
+    M_MISSING: ['warn', true, '3D-модель не найдена в указанной папке'],
+    M_CLOUD: ['warn', false, '3D-модель хранится только в облаке OneDrive — при открытии будет скачиваться'],
+    M_NOFILE: ['info', false, 'Model3D Type="File" без имени файла'],
+    M_ZOOM: ['warn', true, 'Нулевой масштаб 3D-модели'],
+    M_ENUM: ['warn', true, 'Недопустимые Units/Type у Model3D'],
+    E_CID: ['error', true, 'Id компонентов не по порядку 0..N-1'],
+    E_NOPART: ['error', true, 'Компонент без частей Part'],
+    E_PID: ['warn', true, 'Id частей Part не по порядку'],
+    E_PATREF: ['error', true, 'Компонент ссылается на несуществующий корпус (Pattern Style)'],
+    E_PINID: ['warn', true, 'Id выводов не по порядку'],
+    E_PINPAD: ['error', true, 'Вывод ссылается на несуществующую площадку (PadId/PadNumber)'],
+    E_PINNOPAD: ['warn', false, 'Номер площадки вывода отсутствует в корпусе'],
+    E_INTCON: ['error', true, 'Внутреннее соединение на несуществующую площадку (по спецификации — вызывает сбой)'],
+    E_SUBF: ['warn', true, 'SubFolderIndex вне списка подпапок'],
+    E_ENUM: ['warn', true, 'Недопустимые PartType/Type части'],
+    E_PINENUM: ['warn', true, 'Недопустимые Orientation/Type/ElectricType вывода'],
+    E_UNUSEDPAT: ['info', true, 'Корпуса во вложенной библиотеке, не используемые компонентами'],
+    E_DUPNAME: ['info', false, 'Повтор имени компонента']
+  };
+  var DEFAULT_ON = { S_UNUSED: false, P_MOUNTNONE: false, P_TPL: false, P_ORDER: false, M_NONE: false, M_MISSING: false, E_UNUSEDPAT: false, P_NONAME: true, G_SHID: true, E_PINID: true };
+
+  var PAD_ORDER = ['Name', 'Name_Description', 'Name_Unique', 'Value', 'Manufacturer', 'Datasheet', 'PossibleNames', 'Category', 'Origin', 'RecoveryCode', 'Groups', 'AddFields', 'Suppliers', 'DefPad', 'Pads', 'Shapes', 'Holes', 'Dimensions', 'Model3D'];
+  var PART_ORDER = ['Pattern', 'Name', 'PartName', 'Value', 'LibPath', 'Origin', 'Datasheet', 'SpiceModel', 'Manufacturer', 'Category', 'Suppliers', 'Pins', 'Shapes', 'Groups', 'AddFields', 'InternalConnections'];
+  var PAT_SINGLE = ['Name', 'Name_Description', 'Name_Unique', 'Value', 'Manufacturer', 'Datasheet', 'PossibleNames', 'Category', 'Origin', 'RecoveryCode', 'Groups', 'AddFields', 'Suppliers', 'DefPad', 'Pads', 'Shapes', 'Holes', 'Dimensions', 'Model3D'];
+  var PART_SINGLE = ['Pattern', 'Name', 'PartName', 'Value', 'LibPath', 'Origin', 'Datasheet', 'SpiceModel', 'Manufacturer', 'Category', 'Suppliers', 'Pins', 'Shapes', 'Groups', 'AddFields', 'InternalConnections'];
+  var MOUNT = ['Through', 'SMD', 'Chassis', 'Mixed'];
+  var PTYPE = ['None', 'Free', 'Right Angle', 'Left Angle', 'T', 'Circle', 'Lines', 'Square', 'Matrix', 'Rectangle', 'Zig-Zag', 'IPC-7351'];
+  var STACK = ['Ellipse', 'Obround', 'Rectangle', 'Polygon', 'D-shape', 'Fiducial'];
+  var PSHAPE = { None: 0, Line: 2, Rectangle: 2, Obround: 2, FillRect: 2, FillObround: 2, Arc: 3, Text: 1, Polyline: 2, Polygon: 3 };
+  var CSHAPE = { Undefined: 0, Line: 2, Arc: 3, Arrow: 2, Rectangle: 2, FillRect: 2, Obround: 2, FillObround: 2, Polyline: 2, Polygon: 3, Text: 1 };
+  var LAYERS = ['Top Silk', 'Top Assy', 'Top Mask', 'Top Paste', 'Bottom Paste', 'Bottom Mask', 'Bottom Assy', 'Bottom Silk', 'Top', 'Top Keepout', 'Bottom Keepout', 'Bottom', 'Board Cutout', 'Top Dimension', 'Bottom Dimension', 'Non-Signal', 'Top Courtyard', 'Bottom Courtyard', 'Top Outline', 'Bottom Outline', 'Top Terminals', 'Bottom Terminals'];
+  var PARTTYPE = ['Normal', 'Power', 'Net Port', 'Hierarchy Connector', 'Hierarchy Block'];
+  var PARTTPL = ['Free', '2 Sides', 'IC-2 Sides', 'IC-4 Sides'];
+  var ORI = ['0', '90', '180', '270'];
+  var PINTYPE = ['Default', 'Dot', 'Polarity In', 'Polarity Out', 'Non Logic', 'Open', 'Open High', 'Open Low', '3 State', 'Hysteresis', 'Amplifier', 'Postponed', 'Shift', 'Clock', 'Generator'];
+  var ELTYPE = ['Undefined', 'Passive', 'Input', 'Output', 'Bidirectional', 'Open High', 'Open Low', 'Passive High', 'Passive Low', '3 State', 'Power'];
+  var NUMATTR = { X: 1, Y: 1, X1: 1, Y1: 1, X2: 1, Y2: 1, XD: 1, YD: 1, Width: 1, Height: 1, Hole: 1, HoleH: 1, XOff: 1, YOff: 1, Diam: 1, HoleDiam: 1, Angle: 1, Length: 1, LineWidth: 1, Corner: 1, IPC_XOff: 1, IPC_YOff: 1 };
+  var POSATTR = { Width: 1, Height: 1 };
+
+  function num(v) { if (v == null) return NaN; var s = String(v).trim(); if (!/^[-+]?(\d+([.,]\d*)?|[.,]\d+)([eE][-+]?\d+)?$/.test(s)) return NaN; return parseFloat(s.replace(',', '.')); }
+  function isInt(v) { return v != null && /^-?\d+$/.test(String(v).trim()); }
+
+  // ---------- модель ----------
+  function model(doc) {
+    var root = doc.root, L = { doc: doc, root: root, kind: '', type: at(root, 'Type') || '', units: at(root, 'Units') || 'mm' };
+    if (L.type === 'DipTrace-PatternLibrary') { L.kind = 'l'; L.pl = root; }
+    else if (L.type === 'DipTrace-ComponentLibrary') { L.kind = 'e'; L.pl = null; for (var i = 0; i < root.c.length; i++) if (root.c[i].t === 'Library' && at(root.c[i], 'Type') === 'DipTrace-PatternLibrary') { L.pl = root.c[i]; break; } }
+    L.patterns = L.pl ? kids(kid(L.pl, 'Patterns'), 'Pattern') : [];
+    L.components = L.kind === 'e' ? kids(kid(root, 'Components'), 'Component') : [];
+    L.scale = L.units === 'inch' ? 1 / 25.4 : L.units === 'mil' ? 1000 / 25.4 : 1;
+    return L;
+  }
+  function patLabel(p, i) { return 'Корпус #' + i + ' «' + (txt(p, 'Name') || '?') + '»'; }
+  function compLabel(c, i) { var P = kid(c, 'Part'); return 'Компонент #' + i + ' «' + (txt(P, 'Name') || '?') + '»'; }
+
+  // ---------- проверка ----------
+  function check(doc, opt) {
+    opt = opt || {};
+    var out = [];
+    function add(code, obj, ln, msg, fix, ctx) { out.push({ code: code, obj: obj || '', ln: ln || 0, msg: msg, fix: fix || null, ctx: ctx || null }); }
+    (doc.issues || []).forEach(function (q) { add(q.code, 'Файл', q.ln, q.msg, null); });
+    if (!doc.root) { add('X_TRUNC', 'Файл', 0, 'Корневой элемент не найден — файл пуст или не XML', null); return out; }
+    var L = model(doc);
+    if (!L.kind) { add('R_TYPE', 'Library', doc.root.ln, 'Type="' + L.type + '". Ожидается DipTrace-PatternLibrary (.libxml) или DipTrace-ComponentLibrary (.elixml)', null); return out; }
+    if (['mm', 'inch', 'mil'].indexOf(L.units) < 0) add('R_UNITS', 'Library', doc.root.ln, 'Units="' + L.units + '"', function () { setA(doc.root, 'Units', 'mm'); });
+    if (L.kind === 'e' && !L.pl) { add('R_NESTED', 'Library', doc.root.ln, 'Нет <Library Type="DipTrace-PatternLibrary"> внутри .elixml', null); }
+    var big = 2000 * L.scale;
+
+    // числа — общий обход
+    (function walk(n, label) {
+      for (var i = 0; i < n.a.length; i++) {
+        var k = n.a[i][0]; if (!NUMATTR[k]) continue;
+        var v = n.a[i][1];
+        if (n.t === 'Model3D' || n.t === 'Rotate' || n.t === 'Offset' || n.t === 'Zoom') { if (k !== 'X' && k !== 'Y' && k !== 'IPC_XOff' && k !== 'IPC_YOff') continue; }
+        var f = num(v);
+        if (isNaN(f) || !isFinite(f)) { (function (n, i, k, v) { add('N_NUM', label, n.ln, '<' + n.t + '> ' + k + '="' + v + '" — будет 0', function () { n.a[i][1] = '0'; }); })(n, i, k, v); }
+        else if (String(v).indexOf(',') >= 0) { (function (n, i, k, v) { add('N_COMMA', label, n.ln, '<' + n.t + '> ' + k + '="' + v + '"', function () { n.a[i][1] = String(v).replace(',', '.'); }); })(n, i, k, v); }
+        else if (k !== 'Angle' && Math.abs(f) > big && n.t !== 'Offset') add('N_BIG', label, n.ln, '<' + n.t + '> ' + k + '=' + v + ' ' + L.units, null);
+      }
+      for (var j = 0; j < n.c.length; j++) {
+        var c = n.c[j], lb = label;
+        if (c.t === 'Pattern' && n.t === 'Patterns') lb = patLabel(c, j);
+        else if (c.t === 'Component') lb = compLabel(c, j);
+        walk(c, lb);
+      }
+    })(doc.root, 'Library');
+
+    var styleSet = {}, styleUse = {};
+    if (L.pl) checkPatLib(L, add, styleSet, styleUse, opt);
+    if (L.kind === 'e') checkComp(L, add, opt);
+    return out;
+  }
+
+  function dupChildren(n, singles, label, add) {
+    var seen = {};
+    n.c.forEach(function (c) {
+      if (singles.indexOf(c.t) < 0) return;
+      if (seen[c.t]) { var first = seen[c.t], dup = c; add('P_DUPCHILD', label, c.ln, 'Повтор <' + c.t + '> — содержимое будет объединено с первым', function () { if (first.c.length || dup.c.length) first.c = first.c.concat(dup.c); X.remove(n, dup); }); }
+      else seen[c.t] = c;
+    });
+  }
+  function orderCheck(n, order, label, add) {
+    var idx = n.c.map(function (c) { return order.indexOf(c.t); }), last = -1, bad = false;
+    for (var i = 0; i < idx.length; i++) { if (idx[i] < 0) continue; if (idx[i] < last) { bad = true; break; } last = idx[i]; }
+    if (bad) add('P_ORDER', label, n.ln, 'Блоки: ' + n.c.map(function (c) { return c.t; }).join(', '), function () { reorder(n, order); });
+  }
+  function reorder(n, order) {
+    var known = n.c.filter(function (c) { return order.indexOf(c.t) >= 0; });
+    known.sort(function (a, b) { return order.indexOf(a.t) - order.indexOf(b.t); });
+    var k = 0; n.c = n.c.map(function (c) { return order.indexOf(c.t) >= 0 ? known[k++] : c; });
+  }
+
+  function catTree(cats, dialect) {
+    // PattEdit: Number ; CompEdit: Index
+    var attr = dialect === 'e' ? 'Index' : 'Number';
+    var tree = kids(cats, 'Category').map(function (c) {
+      return { n: c, id: at(c, attr) != null ? at(c, attr) : at(c, 'Number') != null ? at(c, 'Number') : at(c, 'Index'), name: txt(c, 'Name'), types: kids(kid(c, 'Types'), 'Type').map(function (t) { return { n: t, id: at(t, attr) != null ? at(t, attr) : at(t, 'Number') != null ? at(t, 'Number') : at(t, 'Index'), name: txt(t, 'Name'), subs: kids(kid(t, 'SubTypes'), 'SubType').map(function (s) { return { n: s, id: at(s, attr) != null ? at(s, attr) : at(s, 'Number') != null ? at(s, 'Number') : at(s, 'Index'), name: txt(s, 'Name') }; }) }; }) };
+    });
+    tree.attr = attr; return tree;
+  }
+  function checkCats(cats, refs, dialect, add) {
+    if (!cats) return;
+    var tree = catTree(cats, dialect), attr = tree.attr, dense = true;
+    tree.forEach(function (c, i) { if (String(c.id) !== String(i)) dense = false; c.types.forEach(function (t, j) { if (String(t.id) !== String(j)) dense = false; t.subs.forEach(function (s, k) { if (String(s.id) !== String(k)) dense = false; }); }); });
+    // ссылки
+    function findByName(arr, name) { for (var i = 0; i < arr.length; i++) if (arr[i].name === name) return i; return -1; }
+    function lookup(list, idv) { for (var i = 0; i < list.length; i++) if (String(list[i].id) === String(idv)) return list[i]; return null; }
+    refs.forEach(function (r) {
+      var cat = r.cat, label = r.label, ci = at(cat, 'Index');
+      if (ci == null || ci === '-1') return;
+      var C = lookup(tree, ci), nm = txt(cat, 'Name'), bad = [];
+      if (!C) bad.push('категория Index=' + ci + ' отсутствует');
+      else if (nm && C.name !== nm) bad.push('имя «' + nm + '» ≠ «' + C.name + '»');
+      if (C) kids(kid(cat, 'CategoryTypes'), 'CategoryType').forEach(function (ct) {
+        var ty = kid(ct, 'Type'), st = kid(ct, 'SubType');
+        if (!ty) return;
+        var T = lookup(C.types, at(ty, 'Index'));
+        if (!T) bad.push('тип Index=' + at(ty, 'Index') + ' отсутствует');
+        else if ((ty.x || '') && T.name !== ty.x) bad.push('тип «' + ty.x + '» ≠ «' + T.name + '»');
+        if (st && T && at(st, 'Index') !== '-1') { var S = lookup(T.subs, at(st, 'Index')); if (!S) bad.push('подтип Index=' + at(st, 'Index') + ' отсутствует'); else if ((st.x || '') && S.name !== st.x) bad.push('подтип «' + st.x + '» ≠ «' + S.name + '»'); }
+      });
+      if (bad.length) add('C_REF', label, cat.ln, bad.join('; ') + ' — привязка по имени, иначе ссылка удаляется', function () { relinkCat(r.owner, cat, tree); });
+    });
+    if (!dense) add('C_TREE', 'Категории', cats.ln, 'Номера ' + attr + ' в дереве не идут 0,1,2… — перенумерация с переносом ссылок', function () { renumCats(cats, refs, dialect); });
+  }
+  function relinkCat(owner, cat, tree) {
+    var nm = txt(cat, 'Name'), C = null, ci = -1;
+    for (var i = 0; i < tree.length; i++) if (tree[i].name === nm) { C = tree[i]; ci = i; break; }
+    if (!C) { X.remove(owner, cat); return; }
+    setA(cat, 'Index', C.id);
+    var cts = kid(cat, 'CategoryTypes');
+    if (cts) cts.c = cts.c.filter(function (ct) {
+      var ty = kid(ct, 'Type'); if (!ty) return false;
+      var T = null; for (var j = 0; j < C.types.length; j++) if (C.types[j].name === ty.x) { T = C.types[j]; break; }
+      if (!T) return false; setA(ty, 'Index', T.id);
+      var st = kid(ct, 'SubType');
+      if (st) { var S = null; for (var k = 0; k < T.subs.length; k++) if (T.subs[k].name === st.x) { S = T.subs[k]; break; } if (!S) X.remove(ct, st); else setA(st, 'Index', S.id); }
+      return true;
+    });
+  }
+  function renumCats(cats, refs, dialect) {
+    var tree = catTree(cats, dialect), attr = tree.attr;
+    var mapC = {}, mapT = {}, mapS = {};
+    tree.forEach(function (c, i) { mapC[c.id] = i; setA(c.n, attr, i); c.types.forEach(function (t, j) { mapT[c.id + '|' + t.id] = j; setA(t.n, attr, j); t.subs.forEach(function (s, k) { mapS[c.id + '|' + t.id + '|' + s.id] = k; setA(s.n, attr, k); }); }); });
+    refs.forEach(function (r) {
+      var cat = r.cat, ci = at(cat, 'Index'); if (ci == null || !(ci in mapC)) return;
+      setA(cat, 'Index', mapC[ci]);
+      kids(kid(cat, 'CategoryTypes'), 'CategoryType').forEach(function (ct) {
+        var ty = kid(ct, 'Type'), st = kid(ct, 'SubType'); if (!ty) return; var ti = at(ty, 'Index');
+        if ((ci + '|' + ti) in mapT) setA(ty, 'Index', mapT[ci + '|' + ti]);
+        if (st && (ci + '|' + ti + '|' + at(st, 'Index')) in mapS) setA(st, 'Index', mapS[ci + '|' + ti + '|' + at(st, 'Index')]);
+      });
+    });
+  }
+
+  function checkShapes(owner, label, add, dialect, padIds, groupIds) {
+    var shapes = kid(owner, 'Shapes'); if (!shapes) return;
+    var T = dialect === 'p' ? PSHAPE : CSHAPE, ids = {}, badId = false;
+    shapes.c.slice().forEach(function (s, j) {
+      if (s.t !== 'Shape') return;
+      var id = at(s, 'Id'); if (!isInt(id) || ids[id]) badId = true; ids[id] = 1;
+      var ty = at(s, 'Type');
+      if (!(ty in T)) { add('G_SHTYPE', label, s.ln, 'Фигура Id=' + id + ' Type="' + ty + '" — будет удалена', function () { X.remove(shapes, s); }); return; }
+      var pts = kids(kid(s, 'Points'), 'Point').length, need = T[ty];
+      if (pts < need) { add('G_SHPTS', label, s.ln, 'Фигура Id=' + id + ' ' + ty + ': точек ' + pts + ', нужно ≥' + need + ' — будет удалена', function () { X.remove(shapes, s); }); return; }
+      if (ty === 'Text') {
+        var tl = kid(s, 'TextLines'), show = at(s, 'TextShow') || 'Any Text';
+        if (show === 'Any Text' && (!tl || !kids(tl, 'TextLine').length)) add('G_SHTXT', label, s.ln, 'Текст Id=' + id + ' без TextLines — пустой текст будет удалён', function () { X.remove(shapes, s); });
+      }
+      if (dialect === 'p') {
+        var lay = at(s, 'Layer'); if (lay != null && LAYERS.indexOf(lay) < 0) add('G_LAYER', label, s.ln, 'Фигура Id=' + id + ' Layer="' + lay + '" — будет Top Silk', function () { setA(s, 'Layer', 'Top Silk'); });
+        var pid = at(s, 'PadId'); if (pid != null && pid !== '0' && pid !== '-1' && padIds && !padIds[pid]) add('G_SHPAD', label, s.ln, 'Фигура Id=' + id + ' PadId=' + pid + ' — привязка будет снята', function () { delA(s, 'PadId'); });
+      }
+      var g = at(s, 'Group'); if (g != null && g !== '-1' && !groupIds[g]) add('G_GROUP', label, s.ln, 'Фигура Id=' + id + ' Group=' + g + ' — будет снята', function () { delA(s, 'Group'); });
+    });
+    if (badId) add('G_SHID', label, shapes.ln, 'Id фигур повторяются или нечисловые — перенумерация ' + (dialect === 'p' ? '1..N' : '0..N-1'), function () { renumShapes(owner, dialect); });
+  }
+  function renumShapes(owner, dialect) {
+    var shapes = kid(owner, 'Shapes'), base = dialect === 'p' ? 1 : 0, map = {}, n = 0;
+    kids(shapes, 'Shape').forEach(function (s) { var o = at(s, 'Id'); if (!(o in map)) map[o] = n + base; setA(s, 'Id', n + base); n++; });
+    kids(kid(owner, 'Dimensions'), 'Dimension').forEach(function (d) { ['1', '2'].forEach(function (k) { if (at(d, 'Connected' + k) === 'Shape' && (at(d, 'Object' + k) in map)) setA(d, 'Object' + k, map[at(d, 'Object' + k)]); }); });
+  }
+
+  function checkAddFields(owner, label, add) {
+    var af = kid(owner, 'AddFields'); if (!af) return;
+    var seen = {};
+    af.c.slice().forEach(function (f) {
+      if (f.t !== 'AddField') return;
+      var nm = txt(f, 'Name'), ty = at(f, 'Type');
+      if (!nm.trim()) { add('F_NONAME', label, f.ln, 'Поле без имени (значение «' + txt(f, 'Text').slice(0, 40) + '») — будет удалено', function () { X.remove(af, f); }); return; }
+      if (ty !== 'Text' && ty !== 'Link') add('F_TYPE', label, f.ln, 'Поле «' + nm + '» Type="' + ty + '" — будет Text', function () { setA(f, 'Type', 'Text'); });
+      if (!kid(f, 'Text')) add('F_NOTEXT', label, f.ln, 'Поле «' + nm + '» без <Text> — будет добавлен пустой', function () { var t = el('Text'); t.sc = '/>'; f.c.push(t); });
+      if (seen[nm]) { var first = seen[nm]; add('F_DUP', label, f.ln, 'Повтор поля «' + nm + '» — остаётся одно (непустое значение сохраняется)', function () { if (!txt(first, 'Text') && txt(f, 'Text')) X.setTxt(first, 'Text', txt(f, 'Text')); X.remove(af, f); }); }
+      else seen[nm] = f;
+    });
+  }
+
+  function checkPatLib(L, add, styleSet, styleUse, opt) {
+    var pl = L.pl, ps = kid(pl, 'PadStyles') || kid(pl, 'PadTypes');
+    var styles = kids(ps, 'PadStyle'), firstStyle = null;
+    styles.slice().forEach(function (s, i) {
+      var nm = at(s, 'Name'), lb = 'Стиль площадки «' + (nm || '?') + '»';
+      if (!nm) { add('S_NONAME', lb, s.ln, 'PadStyle #' + i + ' без Name — будет PadFix' + i, function () { setA(s, 'Name', 'PadFix' + i); }); nm = 'PadFix' + i; }
+      if (styleSet[nm]) { add('S_DUP', lb, s.ln, 'Повтор стиля «' + nm + '» — дубликат удаляется (площадки уже привязаны к первому)', function () { X.remove(ps, s); }); return; }
+      styleSet[nm] = s; if (!firstStyle) firstStyle = nm;
+      var ty = at(s, 'Type'), ms = kid(s, 'MainStack');
+      if (ty !== 'Surface' && ty !== 'Through') add('S_TYPE', lb, s.ln, 'Type="' + ty + '" — будет ' + (at(s, 'Hole') ? 'Through' : 'Surface'), function () { setA(s, 'Type', at(s, 'Hole') ? 'Through' : 'Surface'); });
+      if (!ms) { add('S_STACK', lb, s.ln, 'Нет <MainStack> — будет прямоугольник 1×1 мм (проверьте!)', function () { s.c.unshift(el('MainStack', [['Shape', 'Rectangle'], ['Width', String(+(1 * L.scale).toFixed(4))], ['Height', String(+(1 * L.scale).toFixed(4))], ['Corner', '0']])); }); return; }
+      var sh = at(ms, 'Shape');
+      if (STACK.indexOf(sh) < 0) add('S_SHAPE', lb, ms.ln, 'Shape="' + sh + '" — будет Rectangle', function () { setA(ms, 'Shape', 'Rectangle'); });
+      var W = num(at(ms, 'Width')), H = num(at(ms, 'Height'));
+      if (!(W > 0) || (sh !== 'Fiducial' && !(H > 0))) add('S_SIZE', lb, ms.ln, 'Width=' + at(ms, 'Width') + ' Height=' + at(ms, 'Height') + ' — нулевое значение заменяется другим размером или 0,5 мм (проверьте!)', function () { var d = +(0.5 * L.scale).toFixed(4); var w = W > 0 ? W : H > 0 ? H : d, h = H > 0 ? H : w; setA(ms, 'Width', w); if (sh !== 'Fiducial') setA(ms, 'Height', h); });
+      if (sh === 'Polygon' && kids(kid(ms, 'Points'), 'Point').length < 3) add('S_POLY', lb, ms.ln, 'Polygon без ≥3 точек — будет Rectangle', function () { setA(ms, 'Shape', 'Rectangle'); var p = kid(ms, 'Points'); if (p) X.remove(ms, p); });
+      if (ty === 'Through' && !(num(at(s, 'Hole')) > 0)) add('S_HOLE', lb, s.ln, 'Hole=' + at(s, 'Hole') + ' — будет 60 % меньшего размера площадки (проверьте!)', function () { var w = num(at(ms, 'Width')) || 1, h = num(at(ms, 'Height')) || w; setA(s, 'Hole', +(Math.min(w, h) * 0.6).toFixed(4)); if (!at(s, 'HoleType')) setA(s, 'HoleType', 'Round'); });
+    });
+    var pats = L.patterns, patsNode = kid(pl, 'Patterns');
+    // Id по порядку
+    var idBad = pats.some(function (p, i) { return at(p, 'Id') !== String(i); });
+    if (idBad) add('P_ID', 'Корпуса', patsNode ? patsNode.ln : 0, 'Id корпусов должны идти 0..' + (pats.length - 1) + ' по позиции (спецификация DipTrace, разд. 5) — перенумерация', function () { model(L.doc).patterns.forEach(function (p, i) { setA(p, 'Id', i); }); });
+    if (L.kind === 'e') {
+      var stl = {};
+      pats.forEach(function (p, i) {
+        var s = at(p, 'PatternStyle') || at(p, 'PatternType');
+        if (!s || stl[s]) { add('P_STYLE', patLabel(p, i), p.ln, s ? 'PatternStyle «' + s + '» повторяется — будет новое уникальное имя' : 'Нет PatternStyle — будет назначено', function () { var k = 0, nn; var used = {}; model(L.doc).patterns.forEach(function (q) { used[at(q, 'PatternStyle') || at(q, 'PatternType')] = 1; }); do { nn = 'PatFix' + (k++); } while (used[nn]); delA(p, 'PatternType'); setA(p, 'PatternStyle', nn); }); }
+        else stl[s] = 1;
+      });
+    }
+    var names = {}, catRefs = [];
+    pats.forEach(function (p, i) {
+      var lb = patLabel(p, i), nm = txt(p, 'Name');
+      if (!nm) add('P_NONAME', lb, p.ln, 'Нет <Name> — будет NONAME_' + i, function () { X.setTxt(p, 'Name', 'NONAME_' + i); reorder(p, PAD_ORDER); });
+      else { if (names[nm]) add('P_DUPNAME', lb, p.ln, 'Имя уже у ' + names[nm], null); else names[nm] = '#' + i; }
+      dupChildren(p, PAT_SINGLE, lb, add);
+      orderCheck(p, PAD_ORDER, lb, add);
+      var mt = at(p, 'Mounting'), padsN = kid(p, 'Pads'), pads = kids(padsN, 'Pad');
+      function guessMount() { var th = 0, sm = 0; pads.forEach(function (d) { var s = styleSet[at(d, 'Style')]; if (s && at(s, 'Type') === 'Through') th++; else sm++; }); return th && sm ? 'Mixed' : th ? 'Through' : 'SMD'; }
+      if (mt === 'None') add('P_MOUNTNONE', lb, p.ln, 'Mounting="None" — по площадкам будет ' + guessMount(), function () { setA(p, 'Mounting', guessMount()); });
+      else if (MOUNT.indexOf(mt) < 0) add('P_MOUNT', lb, p.ln, 'Mounting="' + mt + '" — по площадкам будет ' + guessMount(), function () { setA(p, 'Mounting', guessMount()); });
+      var ty = at(p, 'Type');
+      if (ty != null && PTYPE.indexOf(ty) < 0) add('P_TYPE', lb, p.ln, 'Type="' + ty + '" — будет Free', function () { setA(p, 'Type', 'Free'); });
+      if (ty === 'Lines' && isInt(at(p, 'Int2')) && +at(p, 'Int2') !== pads.length) add('P_TPL', lb, p.ln, 'Шаблон Lines: Int1=' + at(p, 'Int1') + ', Int2=' + at(p, 'Int2') + ', а площадок ' + pads.length + ' (похоже на копию другого корпуса) — будет Type="Free", геометрия не меняется', function () { setA(p, 'Type', 'Free'); setA(p, 'LockTypeChange', 'N'); ['Float1', 'Float2', 'Float3', 'Int1', 'Int2'].forEach(function (k) { if (at(p, k) != null) setA(p, k, '0'); }); });
+      var ori = at(p, 'Orientation'); if (ori != null && ORI.indexOf(ori) < 0) add('P_ORIENT', lb, p.ln, 'Orientation="' + ori + '" — будет 0', function () { setA(p, 'Orientation', '0'); });
+      var dp = kid(p, 'DefPad'), dps = dp && at(dp, 'Style');
+      function fallbackStyle() { var cnt = {}; pads.forEach(function (d) { var s = at(d, 'Style'); if (styleSet[s]) cnt[s] = (cnt[s] || 0) + 1; }); var best = null; for (var k in cnt) if (!best || cnt[k] > cnt[best]) best = k; return best || firstStyle; }
+      if (!dp || !styleSet[dps]) {
+        if (firstStyle) add('P_DEFPAD', lb, dp ? dp.ln : p.ln, (dp ? 'DefPad Style="' + dps + '" не найден' : 'Нет <DefPad>') + ' — будет «' + fallbackStyle() + '»', function () { var s = fallbackStyle(); if (dp) setA(dp, 'Style', s); else { p.c.push(el('DefPad', [['Style', s]])); reorder(p, PAD_ORDER); } });
+      } else styleUse[dps] = 1;
+      var pidSeen = {}, pidBad = false, padIds = {};
+      pads.forEach(function (d) {
+        var s = at(d, 'Style'), id = at(d, 'Id');
+        if (!isInt(id) || pidSeen[id]) pidBad = true; pidSeen[id] = 1; padIds[id] = d;
+        if (!styleSet[s]) { add('P_PADSTYLE', lb, d.ln, 'Площадка Id=' + id + ' №' + txt(d, 'Number') + ' Style="' + s + '" — будет стиль DefPad', function () { var dd = kid(p, 'DefPad'); var ns = dd && styleSet[at(dd, 'Style')] ? at(dd, 'Style') : fallbackStyle(); setA(d, 'Style', ns); }); }
+        else styleUse[s] = 1;
+        if (!txt(d, 'Number')) add('P_PADNUM', lb, d.ln, 'Площадка Id=' + id + ' без <Number>', null);
+        var sd = at(d, 'Side'); if (sd != null && sd !== 'Top' && sd !== 'Bottom') add('P_PADSIDE', lb, d.ln, 'Площадка Id=' + id + ' Side="' + sd + '" — будет Top', function () { setA(d, 'Side', 'Top'); });
+      });
+      if (pidBad) add('P_PADID', lb, padsN.ln, 'Id площадок повторяются или нечисловые — перенумерация 1..N' + (L.kind === 'e' ? ' и перепривязка выводов по номеру' : ''), function () { var mp = {}; kids(kid(p, 'Pads'), 'Pad').forEach(function (d, k) { setA(d, 'Id', k + 1); }); p._repin = true; });
+      if (!pads.length && !kids(kid(p, 'Shapes')).length) add('P_NOPADS', lb, p.ln, 'Пустой корпус: нет площадок и фигур', null);
+      var npts = 0; p.c.forEach(function cnt(n) { if (n.t === 'Point') npts++; n.c.forEach(cnt); });
+      if (pads.length > 5000 || npts > 50000) add('N_COUNT', lb, p.ln, 'Площадок ' + pads.length + ', точек ' + npts, null);
+      var groupIds = {}; kids(kid(p, 'Groups'), 'Group').forEach(function (g) { groupIds[at(g, 'Id')] = 1; });
+      pads.forEach(function (d) { var g = at(d, 'Group'); if (g != null && g !== '-1' && !groupIds[g]) add('G_GROUP', lb, d.ln, 'Площадка Id=' + at(d, 'Id') + ' Group=' + g + ' — будет снята', function () { delA(d, 'Group'); }); });
+      checkShapes(p, lb, add, 'p', padIds, groupIds);
+      var holes = kids(kid(p, 'Holes'), 'Hole'), hs = {}, hb = false; holes.forEach(function (h) { var id = at(h, 'Id'); if (!isInt(id) || hs[id]) hb = true; hs[id] = 1; });
+      if (hb) add('G_HOLEID', lb, kid(p, 'Holes').ln, 'Id отверстий повторяются — перенумерация 1..N', function () { kids(kid(p, 'Holes'), 'Hole').forEach(function (h, k) { setA(h, 'Id', k + 1); }); });
+      var shapeIds = {}; kids(kid(p, 'Shapes'), 'Shape').forEach(function (s) { shapeIds[at(s, 'Id')] = 1; });
+      var dims = kid(p, 'Dimensions');
+      kids(dims, 'Dimension').forEach(function (dm) {
+        var bad = [];
+        ['1', '2'].forEach(function (k) {
+          var cn = at(dm, 'Connected' + k), ob = at(dm, 'Object' + k); if (ob == null || ob === '-1') return;
+          var ok = cn === 'Pad' ? (padIds[ob] || pads[+ob]) : cn === 'Shape' ? shapeIds[ob] : cn === 'Hole' ? (hs[ob] || holes[+ob]) : true;
+          if (!ok) bad.push(cn + ' ' + ob);
+        });
+        if (bad.length) add('G_DIMREF', lb, dm.ln, 'Размер ссылается на ' + bad.join(', ') + ' — размер будет удалён', function () { X.remove(dims, dm); });
+      });
+      var cat = kid(p, 'Category'); if (cat) catRefs.push({ cat: cat, owner: p, label: lb });
+      checkAddFields(p, lb, add);
+      var m3 = kid(p, 'Model3D');
+      if (!m3) add('M_NONE', lb, p.ln, 'Нет <Model3D> (DipTrace пишет его всегда) — будет пустой блок', function () { p.c.push(defModel3D()); reorder(p, PAD_ORDER); });
+      else checkModel(m3, lb, add, opt);
+    });
+    checkCats(kid(pl, 'Categories'), catRefs, 'p', add);
+    var unused = Object.keys(styleSet).filter(function (k) { return !styleUse[k]; });
+    if (unused.length) add('S_UNUSED', 'Стили площадок', ps ? ps.ln : 0, 'Не используются: ' + unused.join(', ') + ' — будут удалены', function () { unused.forEach(function (k) { X.remove(ps, styleSet[k]); }); });
+  }
+  function defModel3D() {
+    return el('Model3D', [['Mirror', 'N'], ['NoSearch', 'N'], ['Units', 'mm'], ['IPC_XOff', '0'], ['IPC_YOff', '0'], ['AutoHeight', '0'], ['AutoColor', '4934475'], ['Type', 'File'], ['KeepPins', 'N']],
+      [el('Rotate', [['X', '0'], ['Y', '0'], ['Z', '0']]), el('Offset', [['X', '0'], ['Y', '0'], ['Z', '0']]), el('Zoom', [['X', '1'], ['Y', '1'], ['Z', '1']])]);
+  }
+  function modelPaths(m3) { var f = kid(m3, 'Filename'); return { f: f, path: f ? txt(f, 'Path') : '', vr: f ? txt(f, 'Var') : '' }; }
+  function checkModel(m3, lb, add, opt) {
+    var u = at(m3, 'Units'), ty = at(m3, 'Type');
+    if ((u != null && ['mm', 'mil', 'inch', 'Wings'].indexOf(u) < 0) || (ty != null && ['File', 'IPC-7351', 'Outline'].indexOf(ty) < 0)) add('M_ENUM', lb, m3.ln, 'Model3D Units="' + u + '" Type="' + ty + '" — будут mm/File', function () { if (['mm', 'mil', 'inch', 'Wings'].indexOf(u) < 0) setA(m3, 'Units', 'mm'); if (['File', 'IPC-7351', 'Outline'].indexOf(ty) < 0) setA(m3, 'Type', 'File'); });
+    var z = kid(m3, 'Zoom'); if (z && ['X', 'Y', 'Z'].some(function (k) { return num(at(z, k)) === 0; })) add('M_ZOOM', lb, z.ln, 'Zoom X/Y/Z = ' + ['X', 'Y', 'Z'].map(function (k) { return at(z, k); }).join('/') + ' — нули заменяются на 1', function () { ['X', 'Y', 'Z'].forEach(function (k) { if (num(at(z, k)) === 0) setA(z, k, '1'); }); });
+    var mp = modelPaths(m3);
+    if (ty === 'File' && !mp.path && !mp.vr) { add('M_NOFILE', lb, m3.ln, 'Модель не назначена', null); return; }
+    if (/^\\\\/.test(mp.path) || /^\\\\/.test(mp.vr)) add('M_UNC', lb, m3.ln, mp.path || mp.vr, null);
+    if (opt.models && (mp.path || mp.vr)) {
+      var r = resolveModel(mp, opt.models);
+      if (r.state === 'missing') add('M_MISSING', lb, m3.ln, (mp.vr || mp.path) + ' — ссылка на файл будет удалена', function () { if (mp.f) X.remove(m3, mp.f); });
+      else if (r.state === 'ok' && opt.models[r.key] && opt.models[r.key].cloud && opt.models[r.key].cloud.has(r.rel)) add('M_CLOUD', lb, m3.ln, (mp.vr || mp.path) + ' — отметьте папку «Всегда хранить на этом устройстве»', null);
+    }
+  }
+  // opt.models: {my:{prefixes:[], set:Set}, main:{prefixes:[], set:Set}}
+  function resolveModel(mp, M) {
+    var cands = [mp.vr, mp.path].filter(Boolean);
+    for (var i = 0; i < cands.length; i++) {
+      var p = cands[i].replace(/\//g, '\\');
+      var low = p.toLowerCase();
+      var roots = [['my', '%my3dmodels%\\'], ['main', '%maindir%\\models3d\\']];
+      for (var r = 0; r < roots.length; r++) { var R = M[roots[r][0]]; if (low.indexOf(roots[r][1]) === 0 && R && R.set) return { state: R.set.has(low.slice(roots[r][1].length)) ? 'ok' : 'missing', rel: low.slice(roots[r][1].length), key: roots[r][0] }; }
+      for (var key in M) { var Q = M[key]; if (!Q || !Q.set) continue; for (var j = 0; j < Q.prefixes.length; j++) { var pre = Q.prefixes[j].toLowerCase().replace(/\//g, '\\'); if (pre && pre.slice(-1) !== '\\') pre += '\\'; if (pre && low.indexOf(pre) === 0) return { state: Q.set.has(low.slice(pre.length)) ? 'ok' : 'missing', rel: low.slice(pre.length), key: key }; } }
+    }
+    return { state: 'unknown' };
+  }
+
+  // ---------- компоненты ----------
+  function padIndexOf(pattern) {
+    var pads = kids(kid(pattern, 'Pads'), 'Pad'), byId = {}, byNum = {};
+    pads.forEach(function (d, i) { byId[at(d, 'Id')] = d; var n = txt(d, 'Number'); if (!(n in byNum)) byNum[n] = { d: d, i: i }; });
+    return { pads: pads, byId: byId, byNum: byNum };
+  }
+  function detectPinConv(L, patByStyle) {
+    // сколько выводов совпадает по Id площадки, а сколько — по позиции в массиве
+    var id = 0, ix = 0, ix1 = 0;
+    L.components.forEach(function (c) {
+      var P1 = kid(c, 'Part'), pr = P1 && kid(P1, 'Pattern'), st = pr && (at(pr, 'Style') || at(pr, 'PatternType')), pat = st && patByStyle[st];
+      if (!pat) return; var PI = pat._pi || (pat._pi = padIndexOf(pat));
+      kids(c, 'Part').forEach(function (P) { kids(kid(P, 'Pins'), 'Pin').forEach(function (pn) { var k = at(pn, 'PadId'), nm = txt(pn, 'PadNumber'); if (k == null || k === '-1' || !nm) return; if (PI.byId[k] && txt(PI.byId[k], 'Number') === nm) id++; if (PI.pads[+k] && txt(PI.pads[+k], 'Number') === nm) ix++; }); });
+    });
+    return ix > id ? 'index' : 'id';
+  }
+  function checkComp(L, add, opt) {
+    var root = L.root, comps = L.components, compsNode = kid(root, 'Components');
+    var patByStyle = {}; L.patterns.forEach(function (p) { var s = at(p, 'PatternStyle') || at(p, 'PatternType'); if (s && !patByStyle[s]) patByStyle[s] = p; delete p._pi; });
+    var conv = detectPinConv(L, patByStyle), used = {};
+    var subf = kids(kid(root, 'SubFolders'), 'Item').length;
+    if (comps.some(function (c, i) { return at(c, 'Id') !== String(i); })) add('E_CID', 'Компоненты', compsNode ? compsNode.ln : 0, 'Id компонентов должны идти 0..' + (comps.length - 1) + ' — перенумерация', function () { model(L.doc).components.forEach(function (c, i) { setA(c, 'Id', i); }); });
+    var names = {}, catRefs = [];
+    comps.forEach(function (c, ci) {
+      var lb = compLabel(c, ci), parts = kids(c, 'Part');
+      if (!parts.length) { add('E_NOPART', lb, c.ln, 'Нет ни одной части — компонент будет удалён', function () { X.remove(kid(L.root, 'Components'), c); }); return; }
+      var nm = txt(parts[0], 'Name'); if (nm) { if (names[nm]) add('E_DUPNAME', lb, c.ln, 'Имя уже у ' + names[nm], null); else names[nm] = '#' + ci; }
+      if (parts.some(function (P, i) { return at(P, 'Id') !== String(i); })) add('E_PID', lb, c.ln, 'Id частей не 0..' + (parts.length - 1) + ' — перенумерация', function () { kids(c, 'Part').forEach(function (P, i) { setA(P, 'Id', i); }); });
+      var P1 = parts[0], pr = kid(P1, 'Pattern'), st = pr && (at(pr, 'Style') || at(pr, 'PatternType')), pat = null;
+      if (pr && st) { pat = patByStyle[st]; if (!pat) add('E_PATREF', lb, pr.ln, 'Pattern Style="' + st + '" нет во вложенной библиотеке — ссылка будет удалена (компонент без корпуса)', function () { X.remove(P1, pr); }); else used[st] = 1; }
+      var PI = pat ? (pat._pi || (pat._pi = padIndexOf(pat))) : null;
+      parts.forEach(function (P, pi) {
+        var plb = lb + (parts.length > 1 ? ' / часть ' + pi : '');
+        dupChildren(P, PART_SINGLE, plb, add);
+        orderCheck(P, PART_ORDER, plb, add);
+        var pt = at(P, 'PartType'), tt = at(P, 'Type');
+        if ((pt != null && PARTTYPE.indexOf(pt) < 0) || (tt != null && PARTTPL.indexOf(tt) < 0)) add('E_ENUM', plb, P.ln, 'PartType="' + pt + '" Type="' + tt + '" — будут Normal/Free', function () { if (PARTTYPE.indexOf(pt) < 0) setA(P, 'PartType', 'Normal'); if (PARTTPL.indexOf(tt) < 0) setA(P, 'Type', 'Free'); });
+        var sfi = at(P, 'SubFolderIndex'); if (sfi != null && sfi !== '-1' && (!isInt(sfi) || +sfi >= subf || +sfi < 0)) add('E_SUBF', plb, P.ln, 'SubFolderIndex=' + sfi + ', подпапок ' + subf + ' — будет -1', function () { setA(P, 'SubFolderIndex', '-1'); });
+        var pins = kids(kid(P, 'Pins'), 'Pin');
+        if (pins.some(function (pn, i) { return at(pn, 'Id') !== String(i); })) add('E_PINID', plb, kid(P, 'Pins').ln, 'Id выводов не 0..' + (pins.length - 1) + ' — перенумерация', function () { kids(kid(P, 'Pins'), 'Pin').forEach(function (pn, i) { setA(pn, 'Id', i); }); });
+        var groupIds = {}; kids(kid(P, 'Groups'), 'Group').forEach(function (g) { groupIds[at(g, 'Id')] = 1; });
+        pins.forEach(function (pn) {
+          var o = at(pn, 'Orientation'), ty = at(pn, 'Type'), et = at(pn, 'ElectricType');
+          if ((o != null && ORI.indexOf(o) < 0) || (ty != null && PINTYPE.indexOf(ty) < 0) || (et != null && ELTYPE.indexOf(et) < 0)) add('E_PINENUM', plb, pn.ln, 'Вывод Id=' + at(pn, 'Id') + ': Orientation=' + o + ' Type=' + ty + ' ElectricType=' + et + ' — недопустимые заменяются 0/Default/Undefined', function () { if (o != null && ORI.indexOf(o) < 0) setA(pn, 'Orientation', '0'); if (ty != null && PINTYPE.indexOf(ty) < 0) setA(pn, 'Type', 'Default'); if (et != null && ELTYPE.indexOf(et) < 0) setA(pn, 'ElectricType', 'Undefined'); });
+          var g = at(pn, 'Group'); if (g != null && g !== '-1' && !groupIds[g]) add('G_GROUP', plb, pn.ln, 'Вывод Id=' + at(pn, 'Id') + ' Group=' + g + ' — будет снята', function () { delA(pn, 'Group'); });
+          if (!PI) return;
+          var k = at(pn, 'PadId'), num_ = txt(pn, 'PadNumber');
+          if (k == null || k === '-1') return;
+          var hit = conv === 'index' ? PI.pads[+k] : PI.byId[k];
+          var okHit = hit && (!num_ || txt(hit, 'Number') === num_);
+          if (okHit) return;
+          var target = num_ ? PI.byNum[num_] : null;
+          if (target) add('E_PINPAD', plb, pn.ln, 'Вывод «' + txt(pn, 'Name') + '» PadId=' + k + ' не указывает на площадку №' + num_ + ' — будет PadId=' + (conv === 'index' ? target.i : at(target.d, 'Id')), function () { var PI2 = padIndexOf(pat), t2 = PI2.byNum[num_]; if (t2) setA(pn, 'PadId', conv === 'index' ? t2.i : at(t2.d, 'Id')); });
+          else if (!hit) add('E_PINPAD', plb, pn.ln, 'Вывод «' + txt(pn, 'Name') + '» PadId=' + k + ' — площадки нет' + (num_ ? ', номера «' + num_ + '» тоже нет' : '') + ' — вывод будет отвязан (PadId=-1)', function () { setA(pn, 'PadId', '-1'); });
+          else add('E_PINNOPAD', plb, pn.ln, 'Вывод «' + txt(pn, 'Name') + '»: PadNumber «' + num_ + '» нет в корпусе', null);
+        });
+        checkShapes(P, plb, add, 'c', null, groupIds);
+        var cat = kid(P, 'Category'); if (cat && pi === 0) catRefs.push({ cat: cat, owner: P, label: plb });
+        if (pi === 0) checkAddFields(P, plb, add);
+        var ic = kid(P, 'InternalConnections');
+        if (ic) kids(ic, 'IntCon').forEach(function (x) {
+          var a = at(x, 'X'), b = at(x, 'Y');
+          var okA = PI && (PI.byId[a]), okB = PI && (PI.byId[b]);
+          if (!PI || !okA || !okB) add('E_INTCON', plb, x.ln, 'IntCon X=' + a + ' Y=' + b + (PI ? '' : ' (у компонента нет корпуса)') + ' — соединение будет удалено', function () { X.remove(ic, x); if (!ic.c.length) X.remove(P, ic); });
+        });
+      });
+      // перепривязка выводов после перенумерации площадок
+      if (pat && pat._repin) { /* обрабатывается в apply */ }
+    });
+    checkCats(kid(root, 'Categories'), catRefs, 'e', add);
+    var unusedPats = L.patterns.filter(function (p) { var s = at(p, 'PatternStyle') || at(p, 'PatternType'); return !used[s]; });
+    if (unusedPats.length) add('E_UNUSEDPAT', 'Вложенные корпуса', 0, unusedPats.length + ' шт.: ' + unusedPats.slice(0, 8).map(function (p) { return txt(p, 'Name'); }).join(', ') + (unusedPats.length > 8 ? '…' : '') + ' — будут удалены', function () { var pn = kid(L.pl, 'Patterns'); unusedPats.forEach(function (p) { X.remove(pn, p); }); kids(pn, 'Pattern').forEach(function (p, i) { setA(p, 'Id', i); }); });
+    L.pinConv = conv;
+  }
+
+  // ---------- применение ----------
+  var ORDER = ['X_', 'R_', 'S_DUP', 'S_', 'E_NOPART', 'P_DUPCHILD', 'P_STYLE', 'E_PATREF', 'E_UNUSEDPAT', 'N_', 'P_PADID', 'P_', 'G_', 'F_', 'M_', 'C_', 'E_', 'P_ID', 'E_CID', 'P_ORDER'];
+  function rank(code) { var best = -1, bl = 0; ORDER.forEach(function (o, i) { if (code.indexOf(o) === 0 && o.length >= bl) { best = i; bl = o.length; } }); return best < 0 ? 99 : best; }
+  function apply(doc, enabled, opt) {
+    // enabled: {code:true}; повторные проходы, пока исправления находятся
+    var log = [];
+    for (var pass = 0; pass < 4; pass++) {
+      var iss = check({ root: doc.root, issues: [] }, opt).filter(function (q) { return q.fix && enabled[q.code]; });
+      if (!iss.length) break;
+      iss.sort(function (a, b) { return rank(a.code) - rank(b.code); });
+      // исправления одного прохода с одинаковой областью (перенумерации) достаточно применить по разу
+      var once = {};
+      iss.forEach(function (q) {
+        var key = (q.code === 'P_ID' || q.code === 'E_CID' || q.code === 'C_TREE' || q.code === 'S_UNUSED' || q.code === 'E_UNUSEDPAT') ? q.code : null;
+        if (key) { if (once[key]) return; once[key] = 1; }
+        try { q.fix(); log.push({ pass: pass + 1, code: q.code, obj: q.obj, ln: q.ln, msg: q.msg }); } catch (e) { log.push({ pass: pass + 1, code: q.code, obj: q.obj, ln: q.ln, msg: 'ОШИБКА исправления: ' + e.message }); }
+      });
+      // перепривязка выводов для корпусов с перенумерованными площадками
+      var L = model(doc);
+      if (L.kind === 'e') {
+        var conv = L.pinConv || 'id', byStyle = {};
+        L.patterns.forEach(function (p) { var s = at(p, 'PatternStyle') || at(p, 'PatternType'); if (s) byStyle[s] = p; });
+        L.components.forEach(function (c) {
+          var P1 = kid(c, 'Part'), pr = P1 && kid(P1, 'Pattern'), st = pr && at(pr, 'Style'), pat = st && byStyle[st];
+          if (!pat || !pat._repin) return; var PI = padIndexOf(pat);
+          kids(c, 'Part').forEach(function (P) { kids(kid(P, 'Pins'), 'Pin').forEach(function (pn) { var t = PI.byNum[txt(pn, 'PadNumber')]; if (t) setA(pn, 'PadId', conv === 'index' ? t.i : at(t.d, 'Id')); }); });
+        });
+      }
+      L.patterns.forEach(function (p) { delete p._repin; delete p._pi; });
+    }
+    return log;
+  }
+
+  // ---------- подмножества для поиска причины ----------
+  function items(doc, mode) {
+    var L = model(doc);
+    if (L.kind === 'l' || mode === 'pat') return L.patterns.map(function (p, i) { return { i: i, name: txt(p, 'Name'), kind: 'pat' }; });
+    return L.components.map(function (c, i) { var P = kid(c, 'Part'); return { i: i, name: txt(P, 'Name'), kind: 'comp', style: P && kid(P, 'Pattern') ? at(kid(P, 'Pattern'), 'Style') : null }; });
+  }
+  function rndUID() { return String(Math.floor(Math.random() * 2147483647)); }
+  function subset(doc, mode, keep, tag) {
+    var d = { root: X.clone(doc.root), decl: doc.decl, nl: doc.nl, bom: true, issues: [] };
+    var L = model(d), set = {}; keep.forEach(function (k) { set[k] = 1; });
+    if (L.kind === 'l' || mode === 'pat') {
+      var pn = kid(L.pl, 'Patterns'), kept = {};
+      pn.c = pn.c.filter(function (p, i) { if (p.t !== 'Pattern') return true; var ok = !!set[i]; if (ok) kept[at(p, 'PatternStyle')] = 1; return ok; });
+      kids(pn, 'Pattern').forEach(function (p, i) { setA(p, 'Id', i); });
+      if (L.kind === 'e') { var cn = kid(L.root, 'Components'); cn.c = cn.c.filter(function (c) { var P = kid(c, 'Part'), pr = P && kid(P, 'Pattern'); return !pr || kept[at(pr, 'Style')]; }); kids(cn, 'Component').forEach(function (c, i) { setA(c, 'Id', i); }); }
+    } else {
+      var cn2 = kid(L.root, 'Components'), styles = {};
+      var idx = 0; cn2.c = cn2.c.filter(function (c) { if (c.t !== 'Component') return true; var ok = !!set[idx++]; if (ok) { var P = kid(c, 'Part'), pr = P && kid(P, 'Pattern'); if (pr) styles[at(pr, 'Style')] = 1; } return ok; });
+      kids(cn2, 'Component').forEach(function (c, i) { setA(c, 'Id', i); });
+      var pn2 = kid(L.pl, 'Patterns'); if (pn2) { pn2.c = pn2.c.filter(function (p) { return p.t !== 'Pattern' || styles[at(p, 'PatternStyle')]; }); kids(pn2, 'Pattern').forEach(function (p, i) { setA(p, 'Id', i); }); }
+    }
+    if (tag) { setA(d.root, 'Name', (at(d.root, 'Name') || '') + ' ' + tag); setA(d.root, 'UID32', rndUID()); }
+    return d;
+  }
+  // варианты «без X» для проверки гипотез
+  var ABL = [
+    { k: 'no3d', t: 'без ссылок на 3D-модели', f: function (L) { eachPattern(L, function (p) { var m = kid(p, 'Model3D'); if (m) { var f = kid(m, 'Filename'); if (f) X.remove(m, f); } }); } },
+    { k: 'nofields', t: 'без пользовательских полей', f: function (L) { eachOwner(L, function (o) { var a = kid(o, 'AddFields'); if (a) X.remove(o, a); }); } },
+    { k: 'nocat', t: 'без категорий', f: function (L) { eachOwner(L, function (o) { var a = kid(o, 'Category'); if (a) X.remove(o, a); }); [L.pl, L.kind === 'e' ? L.root : null].forEach(function (n) { if (!n) return; var c = kid(n, 'Categories'); if (c) { c.c = []; c.x = null; c.sc = ' />'; } }); } },
+    { k: 'norc', t: 'без RecoveryCode (данных генератора IPC)', f: function (L) { eachPattern(L, function (p) { var a = kid(p, 'RecoveryCode'); if (a) X.remove(p, a); }); } },
+    { k: 'free', t: 'все шаблоны → Free', f: function (L) { eachPattern(L, function (p) { if (at(p, 'Type') !== 'Free') { setA(p, 'Type', 'Free'); setA(p, 'LockTypeChange', 'N'); ['Float1', 'Float2', 'Float3', 'Int1', 'Int2'].forEach(function (k) { if (at(p, k) != null) setA(p, k, '0'); }); } }); } },
+    { k: 'notext', t: 'без текстовых фигур', f: function (L) { eachOwner(L, function (o) { var s = kid(o, 'Shapes'); if (s) s.c = s.c.filter(function (x) { return at(x, 'Type') !== 'Text'; }); }); } },
+    { k: 'nodim', t: 'без размеров, групп и отверстий', f: function (L) { eachPattern(L, function (p) { ['Dimensions', 'Groups', 'Holes'].forEach(function (t) { var a = kid(p, t); if (a) X.remove(p, a); }); kids(kid(p, 'Pads'), 'Pad').forEach(function (d) { delA(d, 'Group'); }); kids(kid(p, 'Shapes'), 'Shape').forEach(function (d) { delA(d, 'Group'); }); }); } },
+    { k: 'nometa', t: 'без Datasheet, PossibleNames, Suppliers, Name_Unique/Description', f: function (L) { eachOwner(L, function (o) { ['Datasheet', 'PossibleNames', 'Suppliers', 'Name_Unique', 'Name_Description', 'LibPath', 'SpiceModel'].forEach(function (t) { var a = kid(o, t); if (a) X.remove(o, a); }); }); } },
+    { k: 'mount', t: 'Mounting="None" → по площадкам', f: function (L) { var ss = {}; kids(kid(L.pl, 'PadStyles'), 'PadStyle').forEach(function (s) { ss[at(s, 'Name')] = at(s, 'Type'); }); eachPattern(L, function (p) { if (MOUNT.indexOf(at(p, 'Mounting')) >= 0) return; var th = 0, sm = 0; kids(kid(p, 'Pads'), 'Pad').forEach(function (d) { if (ss[at(d, 'Style')] === 'Through') th++; else sm++; }); setA(p, 'Mounting', th && sm ? 'Mixed' : th ? 'Through' : 'SMD'); }); } }
+  ];
+  function eachPattern(L, fn) { L.patterns.forEach(fn); }
+  function eachOwner(L, fn) { L.patterns.forEach(fn); L.components.forEach(function (c) { kids(c, 'Part').forEach(fn); }); }
+  function ablate(doc, keys, tag) {
+    var d = { root: X.clone(doc.root), decl: doc.decl, nl: doc.nl, bom: true, issues: [] }, L = model(d);
+    ABL.forEach(function (a) { if (keys.indexOf(a.k) >= 0) a.f(L); });
+    if (tag) { setA(d.root, 'Name', (at(d.root, 'Name') || '') + ' ' + tag); setA(d.root, 'UID32', rndUID()); }
+    return d;
+  }
+
+  function stats(doc) {
+    var L = model(doc), s = { kind: L.kind, type: L.type, units: L.units, version: at(doc.root, 'Version') || '', name: at(doc.root, 'Name') || '', patterns: L.patterns.length, components: L.components.length, styles: kids(kid(L.pl, 'PadStyles'), 'PadStyle').length, pads: 0, shapes: 0, models: 0 };
+    L.patterns.forEach(function (p) { s.pads += kids(kid(p, 'Pads'), 'Pad').length; s.shapes += kids(kid(p, 'Shapes'), 'Shape').length; var m = kid(p, 'Model3D'); if (m && kid(m, 'Filename')) s.models++; });
+    return s;
+  }
+  function modelList(doc) {
+    var L = model(doc), r = [];
+    L.patterns.forEach(function (p, i) { var m = kid(p, 'Model3D'); if (!m) return; var mp = modelPaths(m); if (mp.path || mp.vr) r.push({ i: i, name: txt(p, 'Name'), path: mp.path, vr: mp.vr }); });
+    return r;
+  }
+
+  function modelReport(doc, M) {
+    var r = { total: 0, ok: 0, missing: 0, cloud: 0, unknown: 0, unc: 0, list: [] };
+    modelList(doc).forEach(function (x) {
+      r.total++; var st = M ? resolveModel(x, M) : { state: 'unknown' }, s = st.state;
+      if (s === 'ok' && M[st.key] && M[st.key].cloud && M[st.key].cloud.has(st.rel)) s = 'cloud';
+      if (/^\\\\/.test(x.vr || x.path)) r.unc++;
+      r[s]++; r.list.push({ i: x.i, name: x.name, ref: x.vr || x.path, state: s, root: st.key || '' });
+    });
+    return r;
+  }
+  return { modelReport: modelReport, CODES: CODES, DEFAULT_ON: DEFAULT_ON, check: check, apply: apply, model: model, items: items, subset: subset, ablate: ablate, ABL: ABL, stats: stats, modelList: modelList, resolveModel: resolveModel };
+})();
+if (typeof module !== 'undefined') module.exports = DC;
+
+// DD — чтение служебных файлов DipTrace (libgroups.dat, libgroups_var.dat): строки UTF-16BE с 2-байтной длиной (BE).
+// Формат не документирован; извлекаются только строки, похожие на пути и имена переменных %…%.
+var DD = (function () {
+  'use strict';
+  var PATHLIKE = /^([A-Za-z]:\\|\\\\|%[A-Za-z0-9_]+%)/;
+  function strings(b) {
+    var out = [], n = b.length, i = 0;
+    while (i + 2 < n) {
+      var L = (b[i] << 8) | b[i + 1];
+      if (L >= 2 && L <= 1024 && i + 2 + 2 * L <= n) {
+        var s = '', ok = true;
+        for (var k = 0; k < L; k++) {
+          var c = (b[i + 2 + 2 * k] << 8) | b[i + 3 + 2 * k];
+          if (c < 32 || (c >= 0xD800 && c <= 0xDFFF) || c >= 0xFFFE) { ok = false; break; }
+          s += String.fromCharCode(c);
+        }
+        if (ok) { out.push({ s: s, off: i }); i += 2 + 2 * L; continue; }
+      }
+      i++;
+    }
+    return out;
+  }
+  var isVar = function (s) { return /^%[A-Za-z0-9_]+%$/.test(s); };
+  function vars(b) {
+    var S = strings(b), v = {};
+    for (var i = 0; i + 1 < S.length; i++) if (PATHLIKE.test(S[i].s) && !isVar(S[i].s) && isVar(S[i + 1].s)) v[S[i + 1].s.toLowerCase()] = S[i].s;
+    return v;
+  }
+  var LIBEXT = /\.(eli|lib|elixml|libxml)$/i;
+  function expand(p, V) {
+    return String(p).replace(/^%([A-Za-z0-9_]+)%/, function (m) { var x = V[m.toLowerCase()]; return x != null ? x.replace(/\\+$/, '') : m; });
+  }
+  function groups(b, V) {
+    var S = strings(b), libs = [], dirs = [], seen = {};
+    S.forEach(function (x) {
+      var s = x.s; if (!PATHLIKE.test(s) || isVar(s)) return;
+      var e = expand(s, V || {}), k = e.toLowerCase(); if (seen[k]) return; seen[k] = 1;
+      var item = { raw: s, path: e, ext: (LIBEXT.exec(e) || [, ''])[1].toLowerCase() };
+      if (item.ext) libs.push(item); else dirs.push(item);
+    });
+    return { libs: libs, dirs: dirs };
+  }
+  return { strings: strings, vars: vars, groups: groups, expand: expand };
+})();
+if (typeof module !== 'undefined') module.exports = DD;
+
+</script>
+<script>
+window.DTR_START = function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var SEVN = { error: 'ошибка', warn: 'предупр.', info: 'сведения' };
+  var SEVO = { error: 0, warn: 1, info: 2 };
+  var files = [], cur = null, models = null, open = {};
+  var SRV = window.DTR_SERVER || null;
+  function api(path, body, opt) {
+    opt = opt || {};
+    var init = { method: body === undefined ? 'GET' : 'POST', headers: { 'X-DTR-Token': SRV.token } };
+    if (body !== undefined) { if (body instanceof Blob) init.body = body; else { init.body = JSON.stringify(body); init.headers['Content-Type'] = 'application/json'; } }
+    return fetch(path, init).then(function (r) {
+      if (opt.bin) return r.ok ? r.arrayBuffer() : r.json().then(function (j) { throw new Error(j.error || ('HTTP ' + r.status)); });
+      return r.json().then(function (j) { if (!r.ok && !opt.allow) throw new Error(j.error || ('HTTP ' + r.status)); j.__status = r.status; return j; });
+    });
+  }
+  function toast(msg, path, isErr) {
+    $('toastMsg').innerHTML = msg; $('toast').classList.remove('hidden'); $('toast').classList.toggle('err', !!isErr);
+    $('toastShow').classList.toggle('hidden', !path); $('toastShow').onclick = function () { api('/api/reveal', { path: path }); };
+    clearTimeout(toast.t); if (!isErr) toast.t = setTimeout(function () { $('toast').classList.add('hidden'); }, 9000);
+  }
+  $('toastX').onclick = function () { $('toast').classList.add('hidden'); };
+
+  // ---------- тема ----------
+  function setTheme(t) { document.documentElement.setAttribute('data-theme', t); $('theme').textContent = t === 'dark' ? 'Светлая тема' : 'Тёмная тема'; try { localStorage.setItem('dtr-theme', t); } catch (e) {} }
+  try { setTheme(localStorage.getItem('dtr-theme') || 'light'); } catch (e) { setTheme('light'); }
+  $('theme').onclick = function () { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
+
+  // ---------- утилиты ----------
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function csvCell(v) { v = String(v == null ? '' : v); return /[;"\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function csv(rows) { return '\uFEFF' + rows.map(function (r) { return r.map(csvCell).join(';'); }).join('\r\n') + '\r\n'; }
+  function download(name, text, mime) {
+    var b = new Blob([text], { type: mime || 'application/octet-stream' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function split(name) { var m = /^(.*?)(\.[^.]+)?$/.exec(name); return { base: m[1], ext: (m[2] || '.libxml') }; }
+  function ser(doc) { var s = DX.serialize(doc); return s.charCodeAt(0) === 0xFEFF ? s : '\uFEFF' + s; }
+  function dirOf(p) { return String(p).replace(/[\\\/][^\\\/]*$/, ''); }
+  // Вывод: в режиме сервера — запись на диск рядом с исходником, иначе скачивание.
+  function emit(f, fname, text, kind) {
+    if (SRV && f && f.path) {
+      var sep = f.path.indexOf('\\') >= 0 ? '\\' : '/', target = kind === 'replace' ? f.path : dirOf(f.path) + (kind === 'test' ? sep + 'dtr-test' : '') + sep + fname;
+      return api('/api/write?path=' + encodeURIComponent(target) + '&mode=' + (kind === 'replace' ? 'replace' : 'overwrite') + '&mkdir=1', new Blob([text]))
+        .then(function (r) {
+          toast('Записано: <code>' + esc(r.path) + '</code>' + (r.backup ? '<br>Резервная копия: <code>' + esc(r.backup) + '</code>' : '') + (r.procs && r.procs.length ? '<br><span class="b warn">DipTrace запущен: ' + esc(r.procs.join(', ')) + '</span>' : ''), r.path);
+          return r;
+        }, function (e) { toast('Ошибка записи: ' + esc(e.message), null, true); throw e; });
+    }
+    download(fname, text, /\.csv$/i.test(fname) ? 'text/csv' : 'application/xml');
+    return Promise.resolve(null);
+  }
+  function saveDoc(f, doc, suffix, kind) { var p = split(f.name); return emit(f, p.base + suffix + p.ext, ser(doc), kind || 'test'); }
+  function saveCsv(f, suffix, rows) { return emit(f, split(f.name).base + suffix, csv(rows), 'csv'); }
+  function fmtN(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+  function enabledDefault() { var en = {}; for (var k in DC.CODES) en[k] = DC.CODES[k][1] === true && DC.DEFAULT_ON[k] !== false; return en; }
+  function modelOpt() { return models && (models.my || models.main) ? { models: models } : {}; }
+
+  // ---------- загрузка ----------
+  var drop = $('drop'), fin = $('fin');
+  drop.onclick = function (e) { if (e.target !== fin) fin.click(); };
+  fin.onchange = function () { load(fin.files); fin.value = ''; };
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { load(e.dataTransfer.files); });
+
+  function decode(buf) {
+    var u8 = new Uint8Array(buf), txt, enc = 'UTF-8';
+    try { txt = new TextDecoder('utf-8', { fatal: true }).decode(u8); }
+    catch (e) { txt = new TextDecoder('windows-1251').decode(u8); enc = 'не UTF-8 (прочитан как Windows-1251)'; }
+    if (txt.charCodeAt(0) !== 0xFEFF && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) txt = '\uFEFF' + txt;
+    return { txt: txt, enc: enc, size: buf.byteLength };
+  }
+  function load(list) {
+    loadEntries(Array.prototype.map.call(list || [], function (file) { return { name: file.name, get: function () { return file.arrayBuffer(); } }; }));
+  }
+  function loadPaths(paths) {
+    return loadEntries(paths.map(function (p) { return { name: p.replace(/^.*[\\\/]/, ''), path: p, get: function () { return api('/api/read?path=' + encodeURIComponent(p), undefined, { bin: true }); } }; }));
+  }
+  function key(f) { return (f.path || f.name).toLowerCase(); }
+  function loadEntries(arr, quiet) {
+    if (!arr.length) return Promise.resolve();
+    var k = 0;
+    var p = Promise.resolve();
+    arr.forEach(function (en) {
+      p = p.then(function () { k++; drop.textContent = 'Чтение ' + k + ' из ' + arr.length + ': ' + en.name + '…'; return en.get(); }).then(function (buf) {
+        var r = decode(buf);
+        var f = { name: en.name, path: en.path || null, size: r.size, enc: r.enc };
+        var t0 = performance.now();
+        try { f.doc = DX.parse(r.txt); } catch (e) { f.err = 'Не удалось разобрать: ' + e.message; }
+        if (f.doc) {
+          try {
+            var out = ser(f.doc), srcB = r.txt.charCodeAt(0) === 0xFEFF ? r.txt : '\uFEFF' + r.txt;
+            f.rt = out === srcB;
+            if (!f.rt) { var i = 0, n = Math.min(out.length, srcB.length); while (i < n && out[i] === srcB[i]) i++; f.rtAt = srcB.slice(0, i).split('\n').length; }
+          } catch (e) { f.rt = false; }
+          f.stats = DC.stats(f.doc);
+          f.iss = DC.check(f.doc, modelOpt());
+          f.en = enabledDefault();
+        }
+        f.ms = Math.round(performance.now() - t0);
+        var ix = files.findIndex(function (x) { return key(x) === key(f); });
+        if (ix >= 0) files[ix] = f; else files.push(f);
+        cur = f;
+      }).catch(function (e) { var f = { name: en.name, path: en.path || null, err: String(e.message || e) }; var ix = files.findIndex(function (x) { return key(x) === key(f); }); if (ix >= 0) files[ix] = f; else files.push(f); });
+    });
+    return p.then(function () {
+      drop.innerHTML = 'Перетащите сюда .libxml / .elixml (можно несколько) или нажмите для выбора';
+      drop.appendChild(fin);
+      renderFiles(); if (cur && !cur.err) select(cur); if (SRV) renderLibs();
+    });
+  }
+  function counts(iss) { var c = { error: 0, warn: 0, info: 0 }; (iss || []).forEach(function (q) { var s = (DC.CODES[q.code] || ['info'])[0]; c[s]++; }); return c; }
+
+  function renderFiles() {
+    $('filesBox').classList.remove('hidden');
+    $('filesT').innerHTML = files.map(function (f, i) {
+      if (f.err) return '<tr data-i="' + i + '"><td>' + esc(f.name) + '</td><td colspan="7"><span class="b error">' + esc(f.err) + '</span></td></tr>';
+      var c = counts(f.iss), s = f.stats;
+      return '<tr data-i="' + i + '" class="' + (f === cur ? 'sel' : '') + '"><td title="' + esc(f.path || '') + '">' + esc(f.name) + (f.path ? '<div class="small mute">' + esc(dirOf(f.path)) + '</div>' : '') + '</td><td>' + (s.kind === 'l' ? 'корпуса' : s.kind === 'e' ? 'компоненты' : '?') + '</td><td class="num">' + s.patterns + '</td><td class="num">' + (s.kind === 'e' ? s.components : '—') + '</td>' +
+        '<td class="num">' + (c.error ? '<span class="b error">' + c.error + '</span>' : '0') + '</td><td class="num">' + (c.warn ? '<span class="b warn">' + c.warn + '</span>' : '0') + '</td><td class="num">' + c.info + '</td>' +
+        '<td>' + (f.rt ? '<span class="b ok">побайтно совпадает</span>' : '<span class="b warn">отличается' + (f.rtAt ? ' (с ' + f.rtAt + ' стр.)' : '') + '</span>') + '</td></tr>';
+    }).join('');
+    Array.prototype.forEach.call($('filesT').rows, function (tr) { tr.onclick = function () { var f = files[+tr.dataset.i]; if (!f.err) { select(f); renderFiles(); } }; });
+  }
+
+  function select(f) {
+    cur = f; open = {};
+    var show = !!(f && f.doc);
+    ['secInfo', 'secDiag', 'secFix', 'secBis'].forEach(function (id) { $(id).classList.toggle('hidden', !show); });
+    if (!show) return;
+    $('fixRes').innerHTML = cur.fixed ? '<p class="small mute">Для этого файла исправленная копия уже создавалась в этом сеансе.</p>' : '';
+    $('bisBase').value = cur.fixed ? 'fixed' : 'orig';
+    $('bisBase').querySelector('option[value=fixed]').disabled = !cur.fixed;
+    renderInfo(); renderDiag(); renderFix(); render3d(); bisInit(); renderAbl(); renderMan();
+  }
+
+  // ---------- сведения ----------
+  function renderInfo() {
+    var f = cur, s = f.stats, d = f.doc, c = counts(f.iss);
+    var nl = d.nl === '\r\n' ? 'CRLF' : d.nl === '\n' ? 'LF' : esc(JSON.stringify(d.nl));
+    $('info').innerHTML = [
+      ['Файл', esc(f.name) + ' · ' + fmtN(f.size) + ' байт'],
+      ['Тип', esc(s.type) + ' · версия ' + esc(s.version || '—')],
+      ['Name', esc(s.name)],
+      ['Единицы', esc(s.units)],
+      ['Кодировка', esc(f.enc) + (d.bom ? ', с BOM' : ', без BOM') + ', строки ' + nl],
+      ['Корпусов', s.patterns + ' (площадок ' + fmtN(s.pads) + ', фигур ' + fmtN(s.shapes) + ', с 3D-моделью ' + s.models + ')'],
+      ['Стилей площадок', s.styles],
+      s.kind === 'e' ? ['Компонентов', s.components] : null,
+      ['Разбор и проверка', f.ms + ' мс']
+    ].filter(Boolean).map(function (r) { return '<b>' + r[0] + '</b><span>' + r[1] + '</span>'; }).join('');
+    var v;
+    if (c.error) v = '<div class="note warn"><div class="bigstate">Найдены ошибки: ' + c.error + '</div>Наиболее вероятные причины зависания — ошибки структуры и ссылок. Отметьте исправления в разделе 3 и сохраните исправленную копию.</div>';
+    else if (c.warn) v = '<div class="note"><div class="bigstate">Ошибок нет, предупреждений: ' + c.warn + '</div>Файл формально корректен. Предупреждения — отклонения от спецификации, которые DipTrace обычно терпит, но они могут быть причиной. Если после исправления зависание остаётся — раздел 5.</div>';
+    else v = '<div class="note"><div class="bigstate">Формальных ошибок не найдено</div>Причина, вероятно, в конкретном объекте или вне файла. Используйте раздел 5 и справку внизу.</div>';
+    v += '<p class="small mute">' + (f.rt ? 'Сохранение без правок даёт побайтно тот же файл — инструмент ничего не теряет при записи.' : 'Сохранение без правок отличается от исходного файла: это ожидаемо, если файл повреждён или записан не DipTrace (отступы, LF, порядок).') + '</p>';
+    $('verdict').innerHTML = v;
+  }
+
+  // ---------- 3D ----------
+  var IDX_JS = 'dt-models3d-index.js', idxInfo = null;
+  function normRel(r) { return String(r).replace(/\//g, '\\').replace(/^\\+/, '').toLowerCase(); }
+  function normPre(p) { p = String(p || '').trim().replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase(); return p ? p + '\\' : ''; }
+  function fieldPre(key) { return normPre($(key === 'my' ? 'preMy' : 'preMain').value); }
+  ['preMy', 'preMain'].forEach(function (id) {
+    try { var sv = localStorage.getItem('dtr-' + id); if (sv) $(id).value = sv; } catch (e) {}
+    $(id).onchange = function () { try { localStorage.setItem('dtr-' + id, $(id).value); } catch (e) {} if (SRV && CFG) { CFG[id === 'preMy' ? 'my3d' : 'main3d'] = $(id).value.trim(); saveCfg(); run3d(); } };
+  });
+  function recheckAll() {
+    files.forEach(function (f) { if (f.doc) f.iss = DC.check(f.doc, modelOpt()); });
+    if (files.length) renderFiles();
+    if (cur && cur.doc) { renderInfo(); renderDiag(); }
+    render3d();
+  }
+  function applyIndex(X) {
+    models = models || {};
+    (X.roots || []).forEach(function (r) {
+      if (!r || !r.key) return;
+      if (!r.exists) { delete models[r.key]; return; }
+      var set = new Set(), cloud = new Set();
+      (r.files || []).forEach(function (f) { var k = normRel(f[0]); set.add(k); if (f[1]) cloud.add(k); });
+      var pre = [normPre(r.path)], fp = fieldPre(r.key); if (fp && pre.indexOf(fp) < 0) pre.push(fp);
+      models[r.key] = { prefixes: pre, set: set, cloud: cloud, src: 'index', path: r.path, n: set.size, nc: cloud.size };
+    });
+    idxInfo = X;
+  }
+  function loadIndex(cb) {
+    var old = document.getElementById('idxScript'); if (old) old.remove();
+    try { delete window.DT_MODELS3D; } catch (e) { window.DT_MODELS3D = undefined; }
+    var sc = document.createElement('script'); sc.id = 'idxScript'; sc.charset = 'utf-8';
+    sc.src = IDX_JS + '?t=' + Date.now();
+    sc.onload = function () { if (window.DT_MODELS3D) { applyIndex(window.DT_MODELS3D); cb(true); } else cb(false, 'файл прочитан, но не содержит данных'); };
+    sc.onerror = function () { cb(false); };
+    document.head.appendChild(sc);
+  }
+  function fmtDate(s) { var d = new Date(s); return isNaN(d) ? String(s) : d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  function stateLine() {
+    var h = [];
+    if (idxInfo) {
+      var age = (Date.now() - new Date(idxInfo.created)) / 864e5;
+      h.push('Список файлов от ' + esc(fmtDate(idxInfo.created)) + (idxInfo.host ? ', компьютер ' + esc(idxInfo.host) : '') + (age > 7 ? ' <span class="b warn">старше недели — запустите сценарий снова</span>' : ''));
+      (idxInfo.roots || []).forEach(function (r) {
+        var nm = r.key === 'my' ? 'свои' : 'DipTrace';
+        h.push(r.exists ? nm + ': <code>' + esc(r.path) + '</code> — ' + fmtN((r.files || []).length) + ' файлов' + (models[r.key] && models[r.key].nc ? ', только в облаке ' + fmtN(models[r.key].nc) : '') : nm + ': <span class="b warn">папка не найдена</span> <code>' + esc(r.path) + '</code>');
+      });
+    }
+    ['my', 'main'].forEach(function (k) { if (models && models[k] && models[k].src === 'pick') h.push((k === 'my' ? 'свои' : 'DipTrace') + ': выбрано вручную, ' + fmtN(models[k].n) + ' файлов'); });
+    return h.join(' · ');
+  }
+  var m3rep = null;
+  function render3d() {
+    $('m3State').innerHTML = stateLine() || '<span class="mute">Список файлов моделей не найден — откройте «Настройка автоматической проверки».</span>';
+    if (!cur || !cur.doc) { $('m3Rep').innerHTML = models ? '' : ''; $('m3Csv').disabled = true; return; }
+    if (!models || !(models.my || models.main)) { $('m3Rep').innerHTML = ''; $('m3Csv').disabled = true; return; }
+    var R = m3rep = DC.modelReport(cur.doc, models);
+    $('m3Csv').disabled = !R.total;
+    var SN = { ok: ['ok', 'найдена'], missing: ['error', 'нет файла'], cloud: ['warn', 'только в облаке'], unknown: ['info', 'вне указанных папок'] };
+    var h = '<div class="row small"><span>Ссылок на 3D-модели: <b>' + R.total + '</b></span>' +
+      '<span class="b ok">найдено ' + R.ok + '</span>' + (R.missing ? '<span class="b error">нет файла ' + R.missing + '</span>' : '') +
+      (R.cloud ? '<span class="b warn">только в облаке ' + R.cloud + '</span>' : '') + (R.unknown ? '<span class="b info">вне указанных папок ' + R.unknown + '</span>' : '') + '</div>';
+    var bad = R.list.filter(function (x) { return x.state !== 'ok'; });
+    if (bad.length) h += '<div class="tw det-in" style="max-height:260px;margin-top:6px"><table><thead><tr><th>Корпус</th><th>Состояние</th><th>Ссылка</th></tr></thead><tbody>' +
+      bad.map(function (x) { return '<tr><td class="small">#' + x.i + ' «' + esc(x.name) + '»</td><td><span class="b ' + SN[x.state][0] + '">' + SN[x.state][1] + '</span></td><td class="mono small">' + esc(x.ref) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    else if (R.total) h += '<p class="small">Все файлы 3D-моделей на месте и хранятся на этом компьютере.</p>';
+    if (R.cloud) h += '<div class="note warn small">Файлы «только в облаке» DipTrace при открытии библиотеки будет ждать из OneDrive. В Проводнике: папка моделей → правая кнопка → «Всегда хранить на этом устройстве», затем запустите сценарий снова.</div>';
+    $('m3Rep').innerHTML = h;
+  }
+  $('m3Check').onclick = function () {
+    if (SRV) { run3d(); return; }
+    $('m3State').textContent = 'Чтение списка файлов…';
+    loadIndex(function (ok, why) {
+      if (!ok) {
+        $('m3Setup').open = true;
+        recheckAll();
+        $('m3State').innerHTML = '<span class="b warn">' + (why ? esc(IDX_JS + ': ' + why) : 'Рядом с инструментом нет ' + IDX_JS) + '</span> Скачайте сценарий ниже, положите его в папку с этим HTML и запустите.' + (stateLine() ? ' · ' + stateLine() : '');
+        return;
+      }
+      recheckAll();
+    });
+  };
+  $('m3Csv').onclick = function () {
+    if (!m3rep) return;
+    var SN = { ok: 'найдена', missing: 'нет файла', cloud: 'только в облаке', unknown: 'вне указанных папок' };
+    var rows = [['Файл', '№', 'Корпус', 'Состояние', 'Ссылка', 'Папка']];
+    m3rep.list.forEach(function (x) { rows.push([cur.name, x.i, x.name, SN[x.state], x.ref, x.root === 'my' ? '%my3dmodels%' : x.root === 'main' ? '%maindir%\\models3d' : '']); });
+    saveCsv(cur, '.3d.csv', rows);
+  };
+  function makeCmd() { return ''; }
+  if (window.DTR_CORP) { $('m3CmdRow').classList.add('hidden'); $('m3Help').innerHTML = 'Без сервера список файлов моделей взять неоткуда: браузер не читает диск. Запустите <code>dt-xml-repair-server.ps1</code> (раздел «Локальный сервер») — проверка 3D-моделей по папкам заработает автоматически. Можно также указать файлы моделей вручную ниже.'; }
+  $('m3Cmd').onclick = function () { download('dt-models3d-index.cmd', makeCmd($('preMy').value.trim(), $('preMain').value.trim()), 'application/octet-stream'); };
+  window.__makeCmd = makeCmd;
+  function bindDir(btn, input, cnt, key) {
+    $(btn).onclick = function () { $(input).click(); };
+    $(input).onchange = function () {
+      var set = new Set();
+      Array.prototype.forEach.call(this.files, function (fl) { var rp = (fl.webkitRelativePath || fl.name).split('/').slice(1).join('\\'); if (rp) set.add(normRel(rp)); });
+      models = models || {};
+      models[key] = { prefixes: [fieldPre(key)], set: set, src: 'pick', n: set.size };
+      $(cnt).textContent = 'файлов: ' + fmtN(set.size);
+      recheckAll();
+    };
+  }
+  bindDir('pickMy', 'dirMy', 'cntMy', 'my');
+  bindDir('pickMain', 'dirMain', 'cntMain', 'main');
+  if (!SRV) loadIndex(function (ok) { if (ok) recheckAll(); else $('m3State').innerHTML = '<span class="mute">Список файлов моделей не найден — откройте «Настройка автоматической проверки».</span>'; });
+
+  // ---------- диагностика ----------
+  function groups() {
+    var g = {};
+    cur.iss.forEach(function (q) { (g[q.code] = g[q.code] || []).push(q); });
+    return Object.keys(g).map(function (k) { return { code: k, list: g[k], meta: DC.CODES[k] || ['info', false, k] }; })
+      .sort(function (a, b) { return SEVO[a.meta[0]] - SEVO[b.meta[0]] || b.list.length - a.list.length; });
+  }
+  function renderDiag() {
+    var sev = {}; Array.prototype.forEach.call(document.querySelectorAll('.sevf'), function (c) { sev[c.value] = c.checked; });
+    var q = $('q').value.trim().toLowerCase();
+    var G = groups(), html = '';
+    if (!G.length) html = '<tr><td colspan="6" class="mute">Замечаний нет.</td></tr>';
+    G.forEach(function (g) {
+      if (!sev[g.meta[0]]) return;
+      var list = q ? g.list.filter(function (x) { return (x.obj + ' ' + x.msg + ' ' + g.code + ' ' + g.meta[2]).toLowerCase().indexOf(q) >= 0; }) : g.list;
+      if (q && !list.length) return;
+      var fx = g.meta[1] === 'auto' ? '<span class="small mute">всегда</span>' : g.meta[1] === true ? '<input type="checkbox" data-c="' + g.code + '"' + (cur.en[g.code] ? ' checked' : '') + '>' : '<span class="small mute">—</span>';
+      html += '<tr class="grp" data-g="' + g.code + '"><td>' + fx + '</td><td><span class="b ' + g.meta[0] + '">' + SEVN[g.meta[0]] + '</span></td><td class="mono">' + g.code + '</td><td>' + esc(g.meta[2]) + '</td><td class="num">' + list.length + '</td><td class="small">' + esc(list[0].obj) + '</td></tr>';
+      if (open[g.code]) {
+        var lim = list.slice(0, 1000);
+        html += '<tr class="det"><td colspan="6"><div class="det-in"><table>' + lim.map(function (x) { return '<tr><td class="small" style="width:30%">' + esc(x.obj) + '</td><td class="num small" style="width:70px">' + (x.ln ? 'стр. ' + x.ln : '') + '</td><td class="small">' + esc(x.msg) + '</td></tr>'; }).join('') + (list.length > lim.length ? '<tr><td colspan="3" class="mute small">… ещё ' + (list.length - lim.length) + ' (полный список — в отчёте CSV)</td></tr>' : '') + '</table></div></td></tr>';
+      }
+    });
+    $('diagT').innerHTML = html;
+    Array.prototype.forEach.call($('diagT').querySelectorAll('tr.grp'), function (tr) {
+      tr.onclick = function (e) { if (e.target.tagName === 'INPUT') return; open[tr.dataset.g] = !open[tr.dataset.g]; renderDiag(); };
+    });
+    Array.prototype.forEach.call($('diagT').querySelectorAll('input[data-c]'), function (cb) { cb.onchange = function () { cur.en[cb.dataset.c] = cb.checked; renderFix(); }; });
+    renderFix();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.sevf'), function (c) { c.onchange = renderDiag; });
+  $('q').oninput = renderDiag;
+  $('selRec').onclick = function () { cur.en = enabledDefault(); renderDiag(); };
+  $('selNone').onclick = function () { for (var k in cur.en) cur.en[k] = false; renderDiag(); };
+  $('csvIss').onclick = function () {
+    var rows = [['Файл', 'Уровень', 'Код', 'Проблема', 'Объект', 'Строка', 'Подробно', 'Исправляется']];
+    cur.iss.forEach(function (x) { var m = DC.CODES[x.code] || ['info', false, x.code]; rows.push([cur.name, SEVN[m[0]], x.code, m[2], x.obj, x.ln || '', x.msg, m[1] === 'auto' ? 'всегда' : m[1] ? (cur.en[x.code] ? 'да' : 'нет (не отмечено)') : 'нет']); });
+    saveCsv(cur, '.diag.csv', rows);
+  };
+
+  // ---------- исправление ----------
+  function renderFix() {
+    var n = 0, act = 0; cur.iss.forEach(function (x) { var m = DC.CODES[x.code]; if (!m) return; if (m[1] === 'auto') act++; else if (m[1] === true && cur.en[x.code]) n++; });
+    $('doFix').textContent = 'Исправить отмеченное (' + n + (act ? ' + ' + act + ' при разборе' : '') + ') и ' + (SRV && cur.path ? 'сохранить .fixed' : 'скачать');
+    $('doReplace').classList.toggle('hidden', !(SRV && cur.path));
+    $('csvLog').disabled = !cur.log;
+  }
+  function buildFixed(f) {
+    var d = { root: DX.clone(f.doc.root), decl: f.doc.decl, nl: '\r\n', bom: true, issues: [] };
+    var name0 = DX.at(d.root, 'Name'), uid0 = DX.at(d.root, 'UID32');
+    var log = DC.apply(d, f.en, modelOpt());
+    if ($('keepName').checked) { if (name0 != null) DX.setA(d.root, 'Name', name0); if (uid0 != null) DX.setA(d.root, 'UID32', uid0); }
+    var out = ser(d), d2 = DX.parse(out), left = DC.check(d2, modelOpt()), c = counts(left);
+    var autoN = f.iss.filter(function (x) { return (DC.CODES[x.code] || [])[1] === 'auto'; });
+    f.log = autoN.map(function (x) { return { pass: 0, code: x.code, obj: x.obj, ln: x.ln, msg: x.msg }; }).concat(log);
+    f.fixed = d2;
+    return { doc: d2, c: c };
+  }
+  function fixReport(f, R, where) {
+    var by = {}; f.log.forEach(function (x) { by[x.code] = (by[x.code] || 0) + 1; });
+    $('fixRes').innerHTML = '<p>' + where + ' Исправлений: ' + f.log.length + '. ' +
+      Object.keys(by).map(function (k) { return '<span class="pill"><span class="mono">' + k + '</span> ' + by[k] + '</span>'; }).join('') + '</p>' +
+      '<p>Повторная проверка результата: ошибок ' + R.c.error + ', предупреждений ' + R.c.warn + ', сведений ' + R.c.info + '.' + (R.c.error ? ' Оставшиеся ошибки автоматически не исправляются — смотрите раздел 3.' : '') + '</p>';
+    renderFix(); $('bisBase').querySelector('option[value=fixed]').disabled = false; $('bisBase').value = 'fixed'; bisInit(); renderMan();
+  }
+  $('doFix').onclick = function () {
+    var f = cur, R = buildFixed(f), nm = split(f.name).base + '.fixed' + split(f.name).ext;
+    saveDoc(f, R.doc, '.fixed', 'fixed').then(function (w) {
+      fixReport(f, R, w ? 'Записан <code>' + esc(w.path) + '</code>.' : 'Скачан <b>' + esc(nm) + '</b>.');
+    }, function () { });
+  };
+  $('doReplace').onclick = function () {
+    var f = cur; if (!SRV || !f.path) return;
+    api('/api/procs').then(function (pr) {
+      var warn = pr.procs && pr.procs.length ? '\n\nВнимание: запущен DipTrace (' + pr.procs.join(', ') + '). Закройте в нём эту библиотеку, иначе он может перезаписать файл.' : '';
+      if (!confirm('Заменить исходный файл исправленным?\n\n' + f.path + '\n\nПеред записью будет создана резервная копия <имя>.bak-ГГГГММДД-ччммсс рядом с ним.' + warn)) return;
+      var R = buildFixed(f);
+      return saveDoc(f, R.doc, '', 'replace').then(function (w) {
+        var msg = '<p>Исходный файл заменён: <code>' + esc(w.path) + '</code> (исправлений: ' + f.log.length + '). Резервная копия: <code>' + esc(w.backup || '—') + '</code>. Файл перечитан — результаты проверки выше относятся к новой версии.</p>';
+        return loadPaths([f.path]).then(function () { $('fixRes').innerHTML = msg; });
+      });
+    }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); });
+  };
+
+  $('csvLog').onclick = function () {
+    var rows = [['Проход', 'Код', 'Проблема', 'Объект', 'Строка исходника', 'Что сделано']];
+    (cur.log || []).forEach(function (x) { rows.push([x.pass === 0 ? 'разбор' : x.pass, x.code, (DC.CODES[x.code] || [, , ''])[2], x.obj, x.ln || '', x.msg]); });
+    saveCsv(cur, '.fixlog.csv', rows);
+  };
+
+  // ---------- поиск деления ----------
+  var B = null;
+  function baseDoc() { return $('bisBase').value === 'fixed' && cur.fixed ? cur.fixed : cur.doc; }
+  function bisInit() {
+    var isE = cur.stats.kind === 'e';
+    $('bisMode').querySelector('option[value=comp]').disabled = !isE;
+    if (!isE) $('bisMode').value = 'pat';
+    var all = DC.items(baseDoc(), $('bisMode').value);
+    B = { mode: $('bisMode').value, all: all, cand: all.map(function (x) { return x.i; }), hist: [], later: [], step: 0, done: null };
+    renderBis();
+  }
+  $('bisStart').onclick = bisInit; $('bisMode').onchange = function () { bisInit(); renderMan(); }; $('bisBase').onchange = function () { bisInit(); renderMan(); };
+  function halves() { var n = B.cand.length, h = Math.ceil(n / 2); return [B.cand.slice(0, h), B.cand.slice(h)]; }
+  function nm(i) { var it = B.all[i]; return it ? it.name : '#' + i; }
+  function unit() { return B.mode === 'pat' ? 'корпусов' : 'компонентов'; }
+  function renderBis() {
+    var h = '', n = B.cand.length;
+    if (!n) { $('bisBox').innerHTML = '<p class="mute">Нет объектов для деления.</p>'; return; }
+    if (B.done) {
+      h += '<div class="note warn"><div class="bigstate">' + esc(B.done) + '</div></div>';
+    } else if (n === 1) {
+      var i = B.cand[0], label = (B.mode === 'pat' ? 'Корпус #' : 'Компонент #') + i + ' «' + nm(i) + '»';
+      var own = cur.iss.filter(function (x) { return x.obj.indexOf('#' + i + ' «') >= 0; });
+      h += '<div class="note warn"><div class="bigstate">Причина: ' + esc(label) + '</div>' +
+        (own.length ? 'Замечания по нему: ' + own.map(function (x) { return '<div class="small"><span class="mono">' + x.code + '</span> ' + esc(x.msg) + '</div>'; }).join('') : 'Формальных замечаний по нему нет — проверьте варианты ниже на файле «только он» или отправьте его в поддержку DipTrace.') + '</div>' +
+        '<div class="row"><button class="pri" id="bWithout">Скачать библиотеку без него</button><button id="bOnly">Скачать только его</button>' + (B.hist.length ? '<button id="bBack">Шаг назад</button>' : '') + '</div>';
+      if (B.later.length) h += '<p class="small">Отложено для проверки (вариант «обе зависают»): ' + B.later.map(function (g) { return g.length + ' ' + unit(); }).join(', ') + ' <button id="bLater">Проверить отложенное</button></p>';
+    } else {
+      var H = halves(), steps = Math.ceil(Math.log2(n));
+      h += '<p>Шаг ' + (B.step + 1) + '. Осталось ' + n + ' ' + unit() + ', ещё примерно ' + steps + ' шаг(ов). ' +
+        'Скачайте обе части, откройте каждую в DipTrace (' + (cur.stats.kind === 'l' ? 'Pattern Editor' : 'Component Editor') + ' → File → Open / Import) и отметьте результат.</p>' +
+        '<div class="row"><button id="bA">Скачать часть A (' + H[0].length + ')</button><button id="bB">Скачать часть B (' + H[1].length + ')</button></div>' +
+        '<p class="small mute">A: ' + esc(H[0].slice(0, 6).map(nm).join(', ')) + (H[0].length > 6 ? '…' : '') + '<br>B: ' + esc(H[1].slice(0, 6).map(nm).join(', ')) + (H[1].length > 6 ? '…' : '') + '</p>' +
+        '<div class="row"><button class="pri" id="vA">Зависает A</button><button class="pri" id="vB">Зависает B</button><button id="vOk">Обе открываются</button><button id="vBoth">Обе зависают</button>' + (B.hist.length ? '<button id="bBack">Шаг назад</button>' : '') + '</div>';
+    }
+    $('bisBox').innerHTML = h;
+    var tag = function (s) { return '[тест ' + s + ']'; };
+    var on = function (id, fn) { var e = $(id); if (e) e.onclick = fn; };
+    on('bA', function () { var H = halves(); saveDoc(cur, DC.subset(baseDoc(), B.mode, H[0], tag((B.step + 1) + 'A')), '.step' + (B.step + 1) + 'A'); });
+    on('bB', function () { var H = halves(); saveDoc(cur, DC.subset(baseDoc(), B.mode, H[1], tag((B.step + 1) + 'B')), '.step' + (B.step + 1) + 'B'); });
+    function push() { B.hist.push({ cand: B.cand.slice(), later: B.later.slice(), step: B.step, done: B.done }); }
+    on('vA', function () { push(); B.cand = halves()[0]; B.step++; renderBis(); });
+    on('vB', function () { push(); B.cand = halves()[1]; B.step++; renderBis(); });
+    on('vBoth', function () { push(); var H = halves(); B.later.push(H[1]); B.cand = H[0]; B.step++; renderBis(); });
+    on('vOk', function () { push(); B.done = 'Обе части открываются, а целиком — нет. Причина не в одном объекте: либо сочетание объектов из разных половин (например, одинаковые стили/имена), либо общий объём/внешние ссылки. Проверьте варианты «без …» ниже и справку внизу. «Шаг назад» вернёт предыдущее состояние.'; renderBis(); });
+    on('bBack', function () { var s = B.hist.pop(); B.cand = s.cand; B.later = s.later; B.step = s.step; B.done = s.done; renderBis(); });
+    on('bLater', function () { push(); B.cand = B.later.shift(); renderBis(); });
+    on('bWithout', function () { var keep = B.all.map(function (x) { return x.i; }).filter(function (i) { return i !== B.cand[0]; }); saveDoc(cur, DC.subset(baseDoc(), B.mode, keep, null), '.without_' + safe(nm(B.cand[0])), 'fixed'); });
+    on('bOnly', function () { saveDoc(cur, DC.subset(baseDoc(), B.mode, [B.cand[0]], tag(nm(B.cand[0]))), '.only_' + safe(nm(B.cand[0]))); });
+  }
+  function safe(s) { return String(s || 'obj').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40); }
+
+  // ---------- варианты «без …» ----------
+  function renderAbl() {
+    $('ablBox').innerHTML = DC.ABL.map(function (a) { return '<button data-k="' + a.k + '">' + esc(a.t) + '</button>'; }).join('') + '<button data-k="*">всё сразу</button>';
+    Array.prototype.forEach.call($('ablBox').querySelectorAll('button'), function (b) {
+      b.onclick = function () { var k = b.dataset.k, keys = k === '*' ? DC.ABL.map(function (a) { return a.k; }) : [k]; saveDoc(cur, DC.ablate(baseDoc(), keys, '[тест ' + k.replace('*', 'all') + ']'), '.' + (k === '*' ? 'all' : k)); };
+    });
+  }
+
+  // ---------- ручной выбор ----------
+  var man = {};
+  function renderMan() {
+    var mode = $('bisMode').value, all = DC.items(baseDoc(), mode), q = $('manQ').value.trim().toLowerCase();
+    man = {};
+    $('manList').innerHTML = all.map(function (x) { return '<label data-n="' + esc((x.name || '').toLowerCase()) + '"><input type="checkbox" value="' + x.i + '"><span class="mono">#' + x.i + '</span> ' + esc(x.name) + '</label>'; }).join('');
+    filterMan(); $('manCnt').textContent = '';
+  }
+  function filterMan() { var q = $('manQ').value.trim().toLowerCase(); Array.prototype.forEach.call($('manList').children, function (l) { l.classList.toggle('hidden', !!q && l.dataset.n.indexOf(q) < 0); }); }
+  function picked() { return Array.prototype.filter.call($('manList').querySelectorAll('input'), function (c) { return c.checked; }).map(function (c) { return +c.value; }); }
+  $('manQ').oninput = filterMan;
+  $('manList').onchange = function () { $('manCnt').textContent = 'отмечено: ' + picked().length; };
+  $('manAll').onclick = function () { Array.prototype.forEach.call($('manList').children, function (l) { if (!l.classList.contains('hidden')) l.firstChild.checked = true; }); $('manList').onchange(); };
+  $('manNone').onclick = function () { Array.prototype.forEach.call($('manList').querySelectorAll('input'), function (c) { c.checked = false; }); $('manList').onchange(); };
+  $('manOnly').onclick = function () { var p = picked(); if (!p.length) return; saveDoc(cur, DC.subset(baseDoc(), $('bisMode').value, p, '[выбор ' + p.length + ']'), '.pick' + p.length); };
+  $('manWithout').onclick = function () { var p = picked(); if (!p.length) return; var s = {}; p.forEach(function (i) { s[i] = 1; }); var keep = DC.items(baseDoc(), $('bisMode').value).map(function (x) { return x.i; }).filter(function (i) { return !s[i]; }); saveDoc(cur, DC.subset(baseDoc(), $('bisMode').value, keep, null), '.without' + p.length); };
+
+  // ---------- локальный сервер: папки, базы, подключённые в DipTrace ----------
+  var CFG = null, INFO = null, DTV = {}, DTG = null, DTD = null, LIBS = [], LIBDIRS = [], REG = {};
+  function saveCfg() { return api('/api/config', CFG).then(function (c) { CFG = c; }); }
+  function b64bytes(b) { var s = atob(b), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+  function fmtSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' МБ' : n >= 1024 ? Math.round(n / 1024) + ' КБ' : n + ' Б'; }
+  function loadedBy(p) { var k = String(p).toLowerCase(); return files.find(function (f) { return f.path && f.path.toLowerCase() === k; }); }
+  function stateCell(p, cloud) {
+    var f = loadedBy(p);
+    if (f) { if (f.err) return '<span class="b error">не разобран</span>'; var c = counts(f.iss); return (c.error ? '<span class="b error">ошибок ' + c.error + '</span> ' : '') + (c.warn ? '<span class="b warn">предупр. ' + c.warn + '</span>' : '') + (!c.error && !c.warn ? '<span class="b ok">в порядке</span>' : ''); }
+    return cloud ? '<span class="b warn">только в облаке</span>' : '<span class="small mute">не проверен</span>';
+  }
+  function srvInit() {
+    $('secSrv').classList.remove('hidden'); $('srvBadge').classList.remove('hidden'); $('srvStop').classList.remove('hidden');
+    $('srvBadge').textContent = 'локальный сервер :' + SRV.port;
+    ['m3Help', 'm3CmdRow', 'm3Manual'].forEach(function (id) { $(id).classList.add('hidden'); });
+    $('m3Setup').querySelector('summary').textContent = 'Папки 3D-моделей';
+    $('srvInfo').textContent = 'Подключение к локальному серверу…';
+    api('/api/info').then(function (i) {
+      INFO = i; CFG = i.config; $('libRecurse').checked = CFG.recurse !== false;
+      return refreshDT();
+    }).then(function () {
+      if (!CFG.libDirs || !CFG.libDirs.length) {
+        var d = [DTV['%mylibs%'] || 'C:\\Users\\limar\\OneDrive\\DipTrace\\lib'];
+        (DTG ? DTG.libs : []).forEach(function (l) { if (/xml$/.test(l.ext)) { var x = dirOf(l.path); if (!d.some(function (y) { return y.toLowerCase() === x.toLowerCase(); })) d.push(x); } });
+        CFG.libDirs = d; saveCfg();
+      }
+      if (CFG.my3d) $('preMy').value = CFG.my3d; else if (DTV['%my3dmodels%']) $('preMy').value = DTV['%my3dmodels%'];
+      if (CFG.main3d) $('preMain').value = CFG.main3d; else if (INFO.dt.maindir) $('preMain').value = INFO.dt.maindir + '\\models3d';
+      renderSrvInfo(); renderProto(); renderDirs(); refreshLibs(); run3d();
+    }).catch(function (e) { $('srvInfo').innerHTML = '<span class="b error">Сервер недоступен: ' + esc(e.message) + '</span> Запустите DipTrace-XML-Repair.cmd заново.'; });
+  }
+  function renderSrvInfo() {
+    var d = INFO.dt, main = (d.installs || []).filter(function (x) { return x.name === 'DipTrace'; })[0];
+    $('srvInfo').innerHTML = 'Компьютер <b>' + esc(INFO.computer) + '</b> · ' + (main ? 'DipTrace ' + esc(main.version) + ' — <code>' + esc(d.maindir) + '</code>' : d.maindir ? 'DipTrace — <code>' + esc(d.maindir) + '</code>' : '<span class="b warn">DipTrace не найден в реестре</span>') +
+      (d.procs && d.procs.length ? ' · <span class="b warn">запущено: ' + esc(d.procs.join(', ')) + '</span>' : ' · DipTrace не запущен') +
+      ' · настройки инструмента: <code>' + esc(INFO.cfgFile) + '</code>';
+    $('dtDataDir').textContent = d.dataDir;
+  }
+  function refreshDT() {
+    return api('/api/dtdata').then(function (D) {
+      DTD = D; DTV = {}; DTG = null; REG = {};
+      var g = null, v = null;
+      (D.files || []).forEach(function (f) { if (f.name === 'libgroups_var.dat') v = b64bytes(f.b64); if (f.name === 'libgroups.dat') g = b64bytes(f.b64); });
+      if (v) DTV = DD.vars(v);
+      if (g) { DTG = DD.groups(g, DTV); DTG.libs.forEach(function (l) { REG[l.path.toLowerCase()] = 1; }); }
+      $('dtVars').innerHTML = Object.keys(DTV).length ? 'Переменные: ' + Object.keys(DTV).map(function (k) { return '<span class="pill"><code>' + esc(k) + '</code> = <code>' + esc(DTV[k]) + '</code></span>'; }).join('') : (D.exists ? '<span class="mute">Переменные путей не найдены.</span>' : '<span class="b warn">Папка данных DipTrace не найдена</span>');
+      $('dtBaks').innerHTML = (D.backups || []).length ? 'Резервные копии групп: ' + D.backups.slice(0, 5).map(function (b) { return '<button data-ts="' + esc(b.ts) + '" class="dtRestore">Восстановить ' + esc(b.ts.replace(/^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)$/, '$3.$2.$1 $4:$5')) + '</button>'; }).join(' ') : '';
+      Array.prototype.forEach.call(document.querySelectorAll('.dtRestore'), function (b) { b.onclick = function () { restoreDT(b.dataset.ts); }; });
+      var libs = DTG ? DTG.libs : [];
+      if (!libs.length) { $('dtLibs').innerHTML = '<p class="small mute">' + (g ? 'Своих библиотек в группах не найдено.' : 'libgroups.dat не найден.') + '</p>'; return; }
+      return api('/api/stat', { paths: libs.map(function (l) { return l.path; }) }).then(function (st) {
+        var S = {}; (st.files || []).forEach(function (x) { S[x.path.toLowerCase()] = x; });
+        $('dtLibs').innerHTML = '<div class="tw"><table><thead><tr><th>Библиотека</th><th>Формат</th><th class="num">Размер</th><th>Изменён</th><th>Состояние</th><th></th></tr></thead><tbody>' + libs.map(function (l) {
+          var x = S[l.path.toLowerCase()] || {}, xml = /xml$/.test(l.ext);
+          return '<tr><td class="small"><b>' + esc(l.path.replace(/^.*[\\\/]/, '')) + '</b><div class="mute">' + esc(dirOf(l.path)) + '</div></td><td class="small">' + (xml ? 'XML' : 'двоичный .' + esc(l.ext)) + '</td>' +
+            '<td class="num small">' + (x.exists ? fmtSize(x.size) : '') + '</td><td class="small">' + (x.exists ? esc(fmtDate(x.mtime)) : '') + '</td>' +
+            '<td>' + (!x.exists ? '<span class="b error">файл не найден</span>' : xml ? stateCell(l.path, x.cloud) : '<span class="small mute">проверяется только XML</span>') + '</td>' +
+            '<td>' + (x.exists && xml ? '<button class="dtOpen" data-p="' + esc(l.path) + '">Открыть</button>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+        Array.prototype.forEach.call(document.querySelectorAll('.dtOpen'), function (b) { b.onclick = function () { openPath(b.dataset.p); }; });
+      });
+    });
+  }
+  function openPath(p) { var f = loadedBy(p); if (f && !f.err) { select(f); renderFiles(); renderLibs(); $('secInfo').scrollIntoView({ behavior: 'smooth' }); } else loadPaths([p]); }
+  $('dtOpenXml').onclick = function () { var l = (DTG ? DTG.libs : []).filter(function (x) { return /xml$/.test(x.ext); }).map(function (x) { return x.path; }); if (l.length) loadPaths(l); };
+  $('dtReset').onclick = function () {
+    api('/api/procs').then(function (pr) {
+      if (pr.procs && pr.procs.length) { alert('Сначала закройте DipTrace: ' + pr.procs.join(', ')); return; }
+      if (!confirm('Сбросить группы библиотек DipTrace?\n\nlibgroups.dat и libgroups_var.dat будут переименованы в *.dtr-bak-<время> (не удалены). При следующем запуске DipTrace создаст их заново: стандартные библиотеки останутся, свои библиотеки и переменные (%mylibs%, %my3dmodels%) нужно будет подключить снова.\n\nВернуть прежние можно кнопкой «Восстановить».')) return;
+      return api('/api/dtdata/reset', {}).then(function (r) { toast('Переименовано: ' + esc(r.renamed.join(', ')) + ' → *.dtr-bak-' + esc(r.ts) + '. Запустите DipTrace.'); return refreshDT(); });
+    }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); });
+  };
+  function restoreDT(ts) {
+    if (!confirm('Вернуть группы библиотек из резервной копии ' + ts + '?\nDipTrace должен быть закрыт. Текущие файлы будут сохранены как *.dtr-new-<время>.')) return;
+    api('/api/dtdata/restore', { ts: ts }).then(function (r) { toast('Восстановлено: ' + esc(r.restored.join(', '))); return refreshDT(); }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); });
+  }
+  function renderDirs() {
+    $('libDirs').innerHTML = (CFG.libDirs || []).map(function (d, i) { return '<span class="chip"><code>' + esc(d) + '</code><button data-i="' + i + '" title="Отключить папку">×</button></span>'; }).join('') || '<span class="small mute">Папки не подключены.</span>';
+    Array.prototype.forEach.call($('libDirs').querySelectorAll('button'), function (b) { b.onclick = function () { CFG.libDirs.splice(+b.dataset.i, 1); saveCfg().then(function () { renderDirs(); refreshLibs(); }); }; });
+  }
+  function addDir(d) {
+    d = String(d || '').trim().replace(/^"|"$/g, '').replace(/[\\\/]+$/, ''); if (!d) return;
+    if ((CFG.libDirs || []).some(function (x) { return x.toLowerCase() === d.toLowerCase(); })) return;
+    CFG.libDirs = (CFG.libDirs || []).concat([d]); saveCfg().then(function () { renderDirs(); refreshLibs(); });
+  }
+  $('addDirPick').onclick = function () { $('addDirPick').disabled = true; api('/api/pick', { kind: 'dir', start: (CFG.libDirs || [])[0] || '' }).then(function (r) { (r.paths || []).forEach(addDir); if (!(r.paths || []).length) toast('Окно выбора закрыто без выбора. Если окно не появилось — оно может быть за браузером.'); }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); }).then(function () { $('addDirPick').disabled = false; }); };
+  $('addDirBtn').onclick = function () { addDir($('addDirPath').value); $('addDirPath').value = ''; };
+  $('addDirPath').onkeydown = function (e) { if (e.key === 'Enter') $('addDirBtn').onclick(); };
+  $('libRecurse').onchange = function () { CFG.recurse = $('libRecurse').checked; saveCfg().then(refreshLibs); };
+  $('pickFiles').onclick = function () { api('/api/pick', { kind: 'files', start: (CFG.libDirs || [])[0] || '' }).then(function (r) { if ((r.paths || []).length) loadPaths(r.paths); }).catch(function (e) { toast('Ошибка: ' + esc(e.message), null, true); }); };
+  function refreshLibs() {
+    $('libCnt').textContent = 'Поиск…';
+    return api('/api/list', { dirs: CFG.libDirs || [], recurse: CFG.recurse !== false }).then(function (r) {
+      LIBS = []; LIBDIRS = r.dirs || [];
+      LIBDIRS.forEach(function (d) { (d.files || []).forEach(function (f) { f.root = d.dir; LIBS.push(f); }); });
+      renderLibs();
+    }).catch(function (e) { $('libCnt').textContent = 'Ошибка: ' + e.message; });
+  }
+  function renderLibs() {
+    if (!SRV || !CFG) return;
+    var q = $('libQ').value.trim().toLowerCase(), shown = 0;
+    var miss = LIBDIRS.filter(function (d) { return !d.exists; }).map(function (d) { return '<tr><td></td><td colspan="5"><span class="b error">папка не найдена</span> <code>' + esc(d.dir) + '</code></td></tr>'; }).join('');
+    $('libT').innerHTML = miss + LIBS.map(function (f, i) {
+      var nm = f.path.replace(/^.*[\\\/]/, ''); if (q && nm.toLowerCase().indexOf(q) < 0) return '';
+      shown++;
+      var rel = dirOf(f.path).slice(f.root.length).replace(/^[\\\/]/, '') || '.';
+      return '<tr data-i="' + i + '" class="' + (loadedBy(f.path) ? 'loaded' : '') + '"><td><input type="checkbox" data-i="' + i + '"></td><td><b>' + esc(nm) + '</b>' + (REG[f.path.toLowerCase()] ? ' <span class="b info">подключена в DipTrace</span>' : '') + '</td><td class="mono small" title="' + esc(dirOf(f.path)) + '">' + esc(rel) + '</td><td class="num">' + fmtSize(f.size) + '</td><td>' + esc(fmtDate(f.mtime)) + '</td><td>' + stateCell(f.path, f.cloud) + '</td></tr>';
+    }).join('');
+    $('libCnt').textContent = 'Найдено: ' + LIBS.length + (q ? ', показано: ' + shown : '');
+    Array.prototype.forEach.call($('libT').querySelectorAll('tr[data-i]'), function (tr) { tr.onclick = function (e) { if (e.target.tagName === 'INPUT') return; openPath(LIBS[+tr.dataset.i].path); }; });
+  }
+  function checkedLibs(all) { return Array.prototype.filter.call($('libT').querySelectorAll('input[data-i]'), function (c) { return all || c.checked; }).map(function (c) { return LIBS[+c.dataset.i].path; }); }
+  $('libQ').oninput = renderLibs;
+  $('libAll').onchange = function () { Array.prototype.forEach.call($('libT').querySelectorAll('input[data-i]'), function (c) { c.checked = $('libAll').checked; }); };
+  $('libOpenSel').onclick = function () { var l = checkedLibs(false); if (l.length) loadPaths(l); else toast('Отметьте библиотеки в списке.'); };
+  $('libOpenAll').onclick = function () { var l = checkedLibs(true); if (!l.length) return; if (l.length > 40 && !confirm('Проверить ' + l.length + ' библиотек? Это может занять время и память браузера.')) return; loadPaths(l); };
+  $('libRefresh').onclick = function () { refreshLibs(); refreshDT(); api('/api/info').then(function (i) { INFO = i; renderSrvInfo(); }); };
+  $('csvAll').onclick = function () {
+    var rows = [['Файл', 'Путь', 'Тип', 'Корпусов', 'Компонентов', 'Уровень', 'Код', 'Проблема', 'Объект', 'Строка', 'Подробно']];
+    files.forEach(function (f) {
+      if (f.err) { rows.push([f.name, f.path || '', '', '', '', 'ошибка', 'PARSE', 'Не разобран', '', '', f.err]); return; }
+      if (!f.iss.length) rows.push([f.name, f.path || '', f.stats.type, f.stats.patterns, f.stats.components, '', '', 'Замечаний нет', '', '', '']);
+      f.iss.forEach(function (x) { var m = DC.CODES[x.code] || ['info', false, x.code]; rows.push([f.name, f.path || '', f.stats.type, f.stats.patterns, f.stats.components, SEVN[m[0]], x.code, m[2], x.obj, x.ln || '', x.msg]); });
+    });
+    var d = new Date(), ts = d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+    download('dtr-svodka-' + ts + '.csv', csv(rows), 'text/csv');
+  };
+  function run3d() {
+    if (!SRV || !CFG) return;
+    $('m3State').textContent = 'Чтение папок 3D-моделей…';
+    var my = [$('preMy').value.trim(), CFG.my3d, DTV['%my3dmodels%']], main = [$('preMain').value.trim(), CFG.main3d, INFO && INFO.dt.maindir ? INFO.dt.maindir + '\\models3d' : ''];
+    api('/api/models', { my: my.filter(Boolean), main: main.filter(Boolean) }).then(function (X) { applyIndex(X); recheckAll(); if (DTG) refreshDT(); renderLibs(); })
+      .catch(function (e) { $('m3State').innerHTML = '<span class="b error">' + esc(e.message) + '</span>'; });
+  }
+  $('srvStop').onclick = function () {
+    if (!confirm('Остановить локальный сервер? Инструмент перестанет видеть папки до следующего запуска DipTrace-XML-Repair.cmd.')) return;
+    api('/api/shutdown', {}).then(function () { document.body.innerHTML = '<main><section><h2>Сервер остановлен</h2><p>Эту вкладку можно закрыть. Для нового запуска — DipTrace-XML-Repair.cmd.</p></section></main>'; });
+  };
+  // ---------- самодостаточный запуск сервера ----------
+  var PORTS = [8765, 8766, 8767, 8768];
+  function dlServer() {} function dlPs1() {} function dlReg() {}
+  function ping(p) {
+    var c = window.AbortController ? new AbortController() : null, t = setTimeout(function () { if (c) c.abort(); }, 1500);
+    return fetch('http://127.0.0.1:' + p + '/api/ping', { mode: 'no-cors', cache: 'no-store', signal: c ? c.signal : undefined })
+      .then(function () { clearTimeout(t); return p; }, function () { clearTimeout(t); return null; });
+  }
+  function findSrv() { return Promise.all(PORTS.map(ping)).then(function (r) { return r.filter(Boolean)[0] || null; }); }
+  var pollT = null;
+  function srvUp(p, go) {
+    var url = 'http://127.0.0.1:' + p + '/';
+    if (go) { $('launchState').textContent = 'Сервер запущен, открываю…'; location.href = url; return; }
+    $('launchState').innerHTML = '<span class="b ok">сервер запущен</span> <a href="' + url + '">Открыть инструмент с сервером</a>';
+  }
+  function poll(sec, go, onTick) {
+    clearInterval(pollT); var t0 = Date.now(), busy = false;
+    pollT = setInterval(function () {
+      if (busy) return; var el = (Date.now() - t0) / 1000;
+      if (el > sec) { clearInterval(pollT); $('launchState').textContent = 'Сервер не отвечает.'; $('launchHelp').classList.remove('hidden'); return; }
+      if (onTick) onTick(el);
+      busy = true; findSrv().then(function (p) { busy = false; if (p) { clearInterval(pollT); srvUp(p, go); } });
+    }, 1000);
+  }
+  function launchInit() {
+    $('secLaunch').classList.remove('hidden');
+    if (!window.DTR_PS) {
+      // Корпоративная сборка: страница не содержит кода сервера и не формирует исполняемые файлы (эвристики антивирусов).
+      $('dlSrv').classList.add('hidden'); $('launchHelp').classList.add('hidden'); $('corpHelp').classList.remove('hidden');
+      $('runSrv').textContent = 'Открыть запущенный сервер';
+      $('launchIntro').textContent = 'Без сервера страница видит только файлы, выбранные вручную. С сервером — подключённые в DipTrace библиотеки, свои папки, папки 3D-моделей, замена исходного файла с резервной копией. Интернет и GitHub не нужны.';
+      findSrv().then(function (p) { if (p) srvUp(p, false); });
+      $('runSrv').onclick = function () {
+        $('launchState').textContent = 'Поиск запущенного сервера…';
+        findSrv().then(function (p) { if (p) srvUp(p, true); else { $('launchState').textContent = 'Сервер не запущен — запустите dt-xml-repair-server.ps1 (см. ниже), страница перейдёт на него сама.'; poll(600, true); } });
+      };
+      return;
+    }
+    findSrv().then(function (p) { if (p) srvUp(p, false); });
+    $('runSrv').onclick = function () {
+      $('launchState').textContent = 'Поиск запущенного сервера…';
+      findSrv().then(function (p) {
+        if (p) { srvUp(p, true); return; }
+        $('launchState').textContent = 'Запуск через ссылку dtrepair:…';
+        location.href = 'dtrepair://start/?nobrowser';
+        poll(120, true, function (el) {
+          if (el > 5) { $('launchHelp').classList.remove('hidden'); $('launchState').textContent = 'Ждём сервер… Если ничего не произошло — быстрый запуск ещё не установлен (см. ниже).'; }
+        });
+      });
+    };
+    $('dlSrv').onclick = function () {
+      dlServer(); $('launchHelp').classList.remove('hidden');
+      $('launchState').textContent = 'Откройте скачанный файл — инструмент откроется в новой вкладке. Ждём сервер…';
+      poll(600, false);
+    };
+  }
+  $('dlSrv2').onclick = dlServer;
+  function renderProto() {
+    var pr = INFO && INFO.proto;
+    if (window.DTR_CORP || !window.DTR_PS) { $('dlSrv2').classList.add('hidden'); pr = null; }
+    if (!pr || !INFO.windows) { $('protoInfo').textContent = ''; $('protoDel').classList.add('hidden'); $('protoReg').classList.add('hidden'); return; }
+    var stable = pr.script && pr.dir && pr.script.toLowerCase().indexOf(pr.dir.toLowerCase()) === 0;
+    $('protoInfo').innerHTML = pr.installed ? 'Быстрый запуск (<code>dtrepair:</code>) установлен: <code>' + esc(pr.command) + '</code>'
+      : (stable ? 'Быстрый запуск не установлен.' : 'Быстрый запуск: сервер запущен не из <code>' + esc(pr.dir) + '</code> — запустите DipTrace-XML-Repair.cmd, он сам копирует туда server.ps1.');
+    $('protoReg').classList.toggle('hidden', !(pr.script && pr.powershell));
+    $('protoReg').textContent = pr.installed ? 'Обновить быстрый запуск (.reg)' : 'Установить быстрый запуск (.reg)';
+    $('protoDel').classList.toggle('hidden', !pr.installed);
+  }
+  $('protoReg').onclick = function () { dlReg(true); };
+  $('protoDel').onclick = function () { dlReg(false); };
+  $('dlPs1').onclick = function (e) { e.preventDefault(); dlPs1(); };
+  if (SRV) srvInit(); else launchInit();
+};
+
+</script>
+<script>window.DTR_SNAP = '<!DOCTYPE html>\n' + document.documentElement.outerHTML; DTR_START();</script>
+</body>
+</html>

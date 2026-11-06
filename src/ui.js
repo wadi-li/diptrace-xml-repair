@@ -623,23 +623,40 @@ window.DTR_START = function () {
     api('/api/shutdown', {}).then(function () { document.body.innerHTML = '<main><section><h2>Сервер остановлен</h2><p>Эту вкладку можно закрыть. Для нового запуска — DipTrace-XML-Repair.cmd.</p></section></main>'; });
   };
   // ---------- самодостаточный запуск сервера ----------
-  var MK = '<' + '#DTR-HTML#' + '>', PORTS = [8765, 8766, 8767, 8768];
+  var PORTS = [8765, 8766, 8767, 8768];
   function pageSnap() {
     return String(window.DTR_SNAP || '').replace(/window\.DTR_SERVER=\{token:\"[0-9a-f]{32}\",port:\d+,version:\"[^\"]*\"\};/, '/*__DTR_' + 'SERVER__*/')
       .replace(/<script\b[^>]*\bsrc=[^>]*>\s*<\/script>/gi, '');   // скрипты, внедрённые фильтрами (AdGuard и т.п.)
   }
-  function makeServerCmd() {
-    var hdr = ['<# : DipTrace XML Repair - local server', '@echo off', 'setlocal', 'set "DTR_DIR=%~dp0"', 'set "DTR_SELF=%~f0"',
-      'title DipTrace XML Repair - local server',
-      'powershell -NoProfile -STA -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText($env:DTR_SELF,[Text.Encoding]::UTF8); $i=$t.LastIndexOf(\'<\'+\'#DTR-HTML#\'+\'>\'); if($i -lt 0){$i=$t.Length}; iex $t.Substring(0,$i)"',
-      'if errorlevel 1 pause', 'exit /b', '#>', ''].join('\r\n');
+  // Сервер с встроенной страницей: обычный сценарий PowerShell (страница — здесь-строка $EMBED_HTML), без iex/кодирования.
+  function makeServerPs1() {
     var ps = String(window.DTR_PS || '').replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
-    return hdr + ps + '\r\n' + MK + '\r\n' + pageSnap();
+    var emb = pageSnap().replace(/^'@/mg, " '@");
+    return "$EMBED_HTML = @'\r\n" + emb + "\r\n'@\r\n" + ps;
   }
+  // .cmd = пакетный заголовок в комментарии PowerShell <# ... #> + тот же сценарий: копирует себя в server.ps1 и запускает через -File.
+  function makeServerCmd() { return (window.DTR_CMDHDR || []).join('\r\n') + makeServerPs1(); }
   window.__makeServerCmd = makeServerCmd;
   function dlServer() {
     if (!window.DTR_PS) { toast('В этой сборке страницы нет встроенного сервера', null, true); return; }
     download('DipTrace-XML-Repair.cmd', makeServerCmd(), 'application/octet-stream');
+  }
+  function dlBlob(name, parts, mime) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(parts, { type: mime || 'application/octet-stream' })); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function dlPs1() { if (!window.DTR_PS) return; dlBlob('server.ps1', [new Uint8Array([0xEF, 0xBB, 0xBF]), makeServerPs1()], 'text/plain'); }
+  function utf16(str) { var u = new Uint16Array(str.length + 1); u[0] = 0xFEFF; for (var i = 0; i < str.length; i++) u[i + 1] = str.charCodeAt(i); return u; }
+  function regq(v) { return '"' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'; }
+  function dlReg(install) {
+    var pr = INFO.proto, K = 'HKEY_CURRENT_USER\\Software\\Classes\\dtrepair', t;
+    if (install) {
+      var cmd = '"' + pr.powershell + '" -NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Minimized -File "' + pr.script + '" "%1"';
+      t = ['Windows Registry Editor Version 5.00', '', '[' + K + ']', '@="URL:DipTrace XML Repair"', '"URL Protocol"=""', '',
+        '[' + K + '\\shell\\open\\command]', '@=' + regq(cmd), ''];
+    } else t = ['Windows Registry Editor Version 5.00', '', '[-' + K + ']', ''];
+    dlBlob(install ? 'dtrepair-install.reg' : 'dtrepair-uninstall.reg', [utf16(t.join('\r\n'))], 'application/octet-stream');
+    toast('Откройте скачанный .reg и подтвердите импорт в реестр (раздел текущего пользователя, без прав администратора). Затем обновите эту страницу.');
   }
   function ping(p) {
     var c = window.AbortController ? new AbortController() : null, t = setTimeout(function () { if (c) c.abort(); }, 1500);
@@ -686,13 +703,16 @@ window.DTR_START = function () {
   $('dlSrv2').onclick = dlServer;
   function renderProto() {
     var pr = INFO && INFO.proto;
-    if (!pr || !INFO.windows) { $('protoInfo').textContent = ''; $('protoDel').classList.add('hidden'); return; }
-    $('protoInfo').innerHTML = pr.installed ? 'Быстрый запуск (<code>dtrepair:</code>) установлен — <code>' + esc(pr.dir) + '</code>' : 'Быстрый запуск не установлен — он регистрируется при запуске DipTrace-XML-Repair.cmd.';
+    if (!pr || !INFO.windows) { $('protoInfo').textContent = ''; $('protoDel').classList.add('hidden'); $('protoReg').classList.add('hidden'); return; }
+    var stable = pr.script && pr.dir && pr.script.toLowerCase().indexOf(pr.dir.toLowerCase()) === 0;
+    $('protoInfo').innerHTML = pr.installed ? 'Быстрый запуск (<code>dtrepair:</code>) установлен: <code>' + esc(pr.command) + '</code>'
+      : (stable ? 'Быстрый запуск не установлен.' : 'Быстрый запуск: сервер запущен не из <code>' + esc(pr.dir) + '</code> — запустите DipTrace-XML-Repair.cmd, он сам копирует туда server.ps1.');
+    $('protoReg').classList.toggle('hidden', !(pr.script && pr.powershell));
+    $('protoReg').textContent = pr.installed ? 'Обновить быстрый запуск (.reg)' : 'Установить быстрый запуск (.reg)';
     $('protoDel').classList.toggle('hidden', !pr.installed);
   }
-  $('protoDel').onclick = function () {
-    if (!confirm('Удалить быстрый запуск? Будут удалены раздел HKCU\\Software\\Classes\\dtrepair и папка ' + INFO.proto.dir + '. Работающий сервер продолжит работу.')) return;
-    api('/api/proto/uninstall', {}).then(function (pr) { INFO.proto = pr; renderProto(); toast('Быстрый запуск удалён'); }).catch(function (e) { toast(e.message, null, true); });
-  };
+  $('protoReg').onclick = function () { dlReg(true); };
+  $('protoDel').onclick = function () { dlReg(false); };
+  $('dlPs1').onclick = function (e) { e.preventDefault(); dlPs1(); };
   if (SRV) srvInit(); else launchInit();
 };

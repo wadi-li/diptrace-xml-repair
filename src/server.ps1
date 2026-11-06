@@ -1,15 +1,12 @@
 # DipTrace XML Repair — локальный сервер (Windows PowerShell 5.1+, без установки).
 # Слушает только 127.0.0.1:<порт> (TcpListener, без прав администратора), принимает запросы только со своей страницы (токен + проверка Host/Origin).
 $ErrorActionPreference = 'Stop'
-$DTR_VERSION = '2.1'
+$DTR_VERSION = '2.2'
 # Test-Path без исключений: «Отказано в доступе» = «нет».
 function TP([string]$LiteralPath, [string]$PathType = 'Any') { if (-not $LiteralPath) { return $false }; try { Test-Path -LiteralPath $LiteralPath -PathType $PathType -ErrorAction Stop } catch { $false } }
-# Самодостаточный DipTrace-XML-Repair.cmd: <пакетный заголовок><этот сценарий><маркер><страница HTML>.
-$MK = '<' + '#DTR-HTML#' + '>'
-$psSelf = $null; $HTML = $null
-if ($env:DTR_SELF) {
-  try { $t = [IO.File]::ReadAllText($env:DTR_SELF, [Text.Encoding]::UTF8); $i = $t.LastIndexOf($MK); if ($i -gt 0) { $psSelf = $t.Substring(0, $i); $HTML = $t.Substring($i + $MK.Length).TrimStart([char[]]"`r`n") } } catch { }
-}
+# Страница либо встроена в этот файл ($EMBED_HTML — здесь-строка перед кодом сервера, так собирается DipTrace-XML-Repair.cmd),
+# либо лежит рядом: diptrace-xml-repair.html. Сценарий запускается обычным -File, без динамического выполнения кода.
+$HTML = $null; if ((Test-Path variable:EMBED_HTML) -and $EMBED_HTML) { $HTML = $EMBED_HTML }
 $dir = $env:DTR_DIR; if (-not $dir) { if ($PSScriptRoot) { $dir = $PSScriptRoot } else { $dir = (Get-Location).Path } }
 $htmlPath = Join-Path $dir 'diptrace-xml-repair.html'
 if (-not $HTML -and -not (TP $htmlPath)) { Write-Host "Не найдена страница $htmlPath. Скачайте DipTrace-XML-Repair.cmd из самого инструмента (кнопка «Скачать DipTrace-XML-Repair.cmd»)."; exit 1 }
@@ -25,29 +22,13 @@ $OUT_EXT = @('.libxml', '.elixml', '.xml', '.csv', '.txt')
 # ---------- быстрый запуск: ссылка dtrepair: (HKCU, без прав администратора) ----------
 $PROTO_KEY = 'Software\Classes\dtrepair'
 $instDir = $null; if ($env:LOCALAPPDATA) { $instDir = Join-Path $env:LOCALAPPDATA 'dt-xml-repair' }
+# Регистрация ссылки dtrepair: делается только файлом .reg, который пользователь импортирует сам (страница его формирует); здесь — только чтение.
 function Proto-Info {
   $k = $null; $cmd = ''
   if ($isWin) { try { $k = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($PROTO_KEY + '\shell\open\command'); if ($k) { $cmd = [string]$k.GetValue(''); $k.Close() } } catch { } }
-  [ordered]@{ installed = [bool]$cmd; dir = $instDir; command = $cmd }
-}
-function Install-Proto {
-  if (-not ($isWin -and $psSelf -and $HTML -and $instDir) -or $env:DTR_NOINSTALL -eq '1') { return }
-  try {
-    if (-not (TP $instDir)) { [void](New-Item -ItemType Directory -Path $instDir -Force) }
-    $ps1 = Join-Path $instDir 'server.ps1'
-    [IO.File]::WriteAllText($ps1, $psSelf, (New-Object Text.UTF8Encoding $true))
-    [IO.File]::WriteAllText((Join-Path $instDir 'diptrace-xml-repair.html'), $HTML, (New-Object Text.UTF8Encoding $false))
-    $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($PROTO_KEY)
-    $k.SetValue('', 'URL:DipTrace XML Repair'); $k.SetValue('URL Protocol', ''); $k.Close()
-    $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($PROTO_KEY + '\shell\open\command')
-    $k.SetValue('', '"' + $exe + '" -NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Minimized -File "' + $ps1 + '" "%1"'); $k.Close()
-    Write-Host ('Быстрый запуск установлен: кнопка «Запустить сервер» в инструменте запускает ' + $ps1)
-  } catch { Write-Host ('Быстрый запуск не установлен: ' + $_.Exception.Message) }
-}
-function Uninstall-Proto {
-  try { [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($PROTO_KEY, $false) } catch { }
-  if ($instDir -and (TP $instDir)) { Remove-Item -LiteralPath $instDir -Recurse -Force -ErrorAction SilentlyContinue }
+  $sp = $PSCommandPath; if (-not $sp) { $sp = '' }
+  $ps = ''; if ($env:SystemRoot) { $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe' }
+  [ordered]@{ installed = [bool]$cmd; dir = $instDir; command = $cmd; script = $sp; powershell = $ps; embedded = [bool]$HTML }
 }
 # Уже запущен? (одна копия сервера)
 function Ping-Port([int]$p) {
@@ -328,7 +309,6 @@ function Handle($ctx) {
       if ($isWin -and $p -and (TP $p)) { Start-Process explorer.exe -ArgumentList ('/select,"' + $p + '"') }
       SendJ $ctx 200 '{"ok":true}'
     }
-    '/api/proto/uninstall' { Uninstall-Proto; SendJ $ctx 200 (JV (Proto-Info)) }
     '/api/shutdown' { SendJ $ctx 200 '{"ok":true}'; $script:stop = $true }
     default { Err $ctx 404 'unknown api' }
   }
@@ -337,7 +317,6 @@ function Handle($ctx) {
 # ---------- запуск ----------
 $L = $null; $port = 0
 $p0 = 8765; if ($env:DTR_PORT) { $p0 = [int]$env:DTR_PORT }
-Install-Proto
 foreach ($p in $p0..($p0 + 3)) { if (Ping-Port $p) { Write-Host "Сервер уже запущен: http://127.0.0.1:$p/"; if ($isWin -and -not $noBrowser) { Start-Process "http://127.0.0.1:$p/" }; exit 0 } }
 foreach ($p in $p0..($p0 + 15)) {
   try { $l = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, $p); $l.ExclusiveAddressUse = $true; $l.Start(); $L = $l; $port = $p; break } catch { }

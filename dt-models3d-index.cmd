@@ -3,18 +3,19 @@
 setlocal
 set "DTR_DIR=%~dp0"
 set "DTR_SELF=%~f0"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ([IO.File]::ReadAllText($env:DTR_SELF))"
+set "DTR_HOME=%LOCALAPPDATA%\dt-xml-repair"
+powershell -NoProfile -Command "[void][IO.Directory]::CreateDirectory($env:DTR_HOME); [IO.File]::WriteAllText($env:DTR_HOME + '\models3d-index.ps1', [IO.File]::ReadAllText($env:DTR_SELF, [Text.Encoding]::UTF8), (New-Object Text.UTF8Encoding $true))"
+if not errorlevel 1 powershell -NoProfile -ExecutionPolicy Bypass -File "%DTR_HOME%\models3d-index.ps1"
 pause
 exit /b
 #>
 # Пишет рядом с собой dt-models3d-index.js — список файлов папок 3D-моделей для «Ремонт библиотек DipTrace XML».
 # Файлы не открываются и из OneDrive не скачиваются: читаются только имена и атрибуты.
 $ErrorActionPreference = "SilentlyContinue"
-function D($b) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b)) }
 function J($s) { '"' + (($s -replace '\\', '\\') -replace '"', '\"') + '"' }
 $roots = @(
-  @{ key = "my";   cands = @((D "QzpcVXNlcnNcbGltYXJcT25lRHJpdmVcRGlwVHJhY2VcbW9kZWxzM2Q="), "$env:OneDrive\DipTrace\models3d", "$env:USERPROFILE\OneDrive\DipTrace\models3d", "$env:USERPROFILE\Documents\DipTrace\models3d") },
-  @{ key = "main"; cands = @((D "QzpcUHJvZ3JhbSBGaWxlc1xEaXBUcmFjZVxtb2RlbHMzZA=="), "C:\DipTrace\models3d", "$env:ProgramFiles\DipTrace\models3d", "${env:ProgramFiles(x86)}\DipTrace\models3d") }
+  @{ key = "my";   cands = @('C:\Users\limar\OneDrive\DipTrace\models3d', "$env:OneDrive\DipTrace\models3d", "$env:USERPROFILE\OneDrive\DipTrace\models3d", "$env:USERPROFILE\Documents\DipTrace\models3d") },
+  @{ key = "main"; cands = @('C:\Program Files\DipTrace\models3d', "C:\DipTrace\models3d", "$env:ProgramFiles\DipTrace\models3d", "${env:ProgramFiles(x86)}\DipTrace\models3d") }
 )
 $dir = $env:DTR_DIR; if (-not $dir) { $dir = (Get-Location).Path }
 $out = Join-Path $dir "dt-models3d-index.js"
